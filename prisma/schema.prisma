@@ -1,0 +1,453 @@
+// Agrícola San Rafael — esquema de datos
+// Ver /Users/simonespinoza/Downloads/Agricola_San_Rafael_Especificacion_Tecnica.md sección 4.2
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RolUsuario {
+  admin
+  operador
+  solo_lectura
+}
+
+enum CondicionPago {
+  contado
+  credito
+}
+
+enum EstadoPago {
+  pagado
+  pendiente
+  parcial
+}
+
+enum MedioPago {
+  efectivo
+  transferencia
+  deposito_cajavecina
+  mercadopago
+  otro
+}
+
+enum CategoriaGasto {
+  combustible
+  flete
+  mano_obra
+  embalaje
+  servicios
+  otro
+}
+
+enum FormaPagoGasto {
+  efectivo
+  transferencia
+  otro
+}
+
+enum EstadoPagoGasto {
+  pagado
+  pendiente
+}
+
+enum TipoDocumento {
+  boleta
+  factura
+  sin_documento
+}
+
+enum EstadoLote {
+  disponible
+  agotado
+}
+
+enum TipoAlerta {
+  cxc_vencimiento
+  cxp_vencimiento
+  sobreventa_stock
+  gasto_pendiente
+}
+
+enum EntidadAlerta {
+  venta
+  compra
+  cliente
+  proveedor
+  /// No está en la tabla de la sección 4.2 (que solo lista venta/compra/
+  /// cliente/proveedor), pero la sección 5.4 exige explícitamente una
+  /// alerta de "gasto pendiente" — sin este valor esa alerta no tendría
+  /// una entidad_tipo correcta a la que referenciarse.
+  gasto
+}
+
+enum EstadoAlerta {
+  pendiente
+  enviada
+  resuelta
+}
+
+enum CanalAlerta {
+  whatsapp
+  push
+  email
+}
+
+enum OrigenProspecto {
+  feria
+  redes_sociales
+  referido
+  otro
+}
+
+enum EtapaProspecto {
+  nuevo
+  en_conversacion
+  cotizacion_enviada
+  cerrado_ganado
+  cerrado_perdido
+}
+
+model Usuario {
+  id           String     @id @default(uuid())
+  nombre       String
+  telefono     String?
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  rol          RolUsuario
+  activo       Boolean    @default(true)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  compras         Compra[]
+  ventas          Venta[]
+  gastos          GastoOperacional[]
+  refreshTokens   RefreshToken[]
+  auditLogs       AuditLog[]
+
+  @@map("usuarios")
+}
+
+/// Rotación/revocación de sesiones (sección 7: JWT + refresh tokens).
+/// No está en la tabla de la sección 4.2, requerida para implementar la
+/// autenticación tal como la describe el documento.
+model RefreshToken {
+  id        String    @id @default(uuid())
+  usuarioId String    @map("usuario_id")
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id])
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([usuarioId])
+  @@map("refresh_tokens")
+}
+
+model Proveedor {
+  id              String         @id @default(uuid())
+  nombre          String
+  rut             String?        @unique
+  contacto        String?
+  telefono        String?
+  ubicacion       String?
+  condicionesPago CondicionPago? @map("condiciones_pago")
+  plazoPagoDias   Int?           @map("plazo_pago_dias")
+  notas           String?
+  activo          Boolean        @default(true)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  createdBy       String?        @map("created_by")
+
+  compras Compra[]
+  pagos   MovimientoPago[]
+
+  @@map("proveedores")
+}
+
+model Cliente {
+  id              String         @id @default(uuid())
+  nombre          String
+  rut             String?
+  contacto        String?
+  telefono        String?
+  email           String?
+  direccion       String?
+  condicionesPago CondicionPago? @map("condiciones_pago")
+  plazoPagoDias   Int?           @map("plazo_pago_dias")
+  activo          Boolean        @default(true)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  createdBy       String?        @map("created_by")
+
+  ventas     Venta[]
+  cobros     MovimientoCobro[]
+  prospectos Prospecto[]
+
+  @@map("clientes")
+}
+
+model Variedad {
+  id     String @id @default(uuid())
+  nombre String @unique
+
+  calibres Calibre[]
+  compras  Compra[]
+  ventas   Venta[]
+  lotes    LoteInventario[]
+
+  @@map("variedades")
+}
+
+model Calibre {
+  id         String    @id @default(uuid())
+  codigo     String
+  variedadId String?   @map("variedad_id")
+  variedad   Variedad? @relation(fields: [variedadId], references: [id])
+  orden      Int       @default(0)
+
+  compras Compra[]
+  ventas  Venta[]
+  lotes   LoteInventario[]
+
+  @@map("calibres")
+}
+
+model Compra {
+  id            String        @id @default(uuid())
+  fecha         DateTime      @db.Date
+  proveedorId   String        @map("proveedor_id")
+  proveedor     Proveedor     @relation(fields: [proveedorId], references: [id])
+  variedadId    String        @map("variedad_id")
+  variedad      Variedad      @relation(fields: [variedadId], references: [id])
+  calibreId     String        @map("calibre_id")
+  calibre       Calibre       @relation(fields: [calibreId], references: [id])
+  kilos         Decimal       @db.Decimal(10, 2)
+  nCajas        Int?          @map("n_cajas")
+  precioKg      Decimal       @map("precio_kg") @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(12, 2)
+  formaPago     CondicionPago @map("forma_pago")
+  estadoPago    EstadoPago    @map("estado_pago")
+  nFactura      String?       @map("n_factura")
+  neto          Decimal?      @db.Decimal(12, 2)
+  iva           Decimal?      @db.Decimal(12, 2)
+  observaciones String?
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  createdById   String?       @map("created_by")
+  createdBy     Usuario?      @relation(fields: [createdById], references: [id])
+
+  lote  LoteInventario?
+  pagos MovimientoPago[]
+
+  @@index([fecha])
+  @@index([proveedorId])
+  @@map("compras")
+}
+
+model LoteInventario {
+  id               String     @id @default(uuid())
+  compraId         String     @unique @map("compra_id")
+  compra           Compra     @relation(fields: [compraId], references: [id])
+  variedadId       String     @map("variedad_id")
+  variedad         Variedad   @relation(fields: [variedadId], references: [id])
+  calibreId        String     @map("calibre_id")
+  calibre          Calibre    @relation(fields: [calibreId], references: [id])
+  fechaIngreso     DateTime   @db.Date @map("fecha_ingreso")
+  kilosIniciales   Decimal    @map("kilos_iniciales") @db.Decimal(10, 2)
+  kilosDisponibles Decimal    @map("kilos_disponibles") @db.Decimal(10, 2)
+  costoKg          Decimal    @map("costo_kg") @db.Decimal(10, 2)
+  estado           EstadoLote @default(disponible)
+
+  ventaLotes VentaLote[]
+
+  @@index([variedadId, calibreId, fechaIngreso])
+  @@map("lotes_inventario")
+}
+
+model Venta {
+  id            String        @id @default(uuid())
+  fecha         DateTime      @db.Date
+  clienteId     String        @map("cliente_id")
+  cliente       Cliente       @relation(fields: [clienteId], references: [id])
+  variedadId    String        @map("variedad_id")
+  variedad      Variedad      @relation(fields: [variedadId], references: [id])
+  calibreId     String        @map("calibre_id")
+  calibre       Calibre       @relation(fields: [calibreId], references: [id])
+  kilos         Decimal       @db.Decimal(10, 2)
+  precioKg      Decimal       @map("precio_kg") @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(12, 2)
+  costoTotal    Decimal       @map("costo_total") @db.Decimal(12, 2)
+  margen        Decimal       @db.Decimal(12, 2)
+  margenPct     Decimal       @map("margen_pct") @db.Decimal(6, 4)
+  formaPago     CondicionPago @map("forma_pago")
+  estadoPago    EstadoPago    @map("estado_pago")
+  tipoDocumento TipoDocumento @map("tipo_documento")
+  nDocumento    String?       @map("n_documento")
+  observaciones String?
+  /// Traza cuándo un admin usó "forzar venta" excediendo stock (sección 5.2).
+  /// No está en 4.2; sin este campo esa acción excepcional no sería auditable.
+  forzada       Boolean       @default(false)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  createdById   String?       @map("created_by")
+  createdBy     Usuario?      @relation(fields: [createdById], references: [id])
+
+  ventaLotes VentaLote[]
+  cobros     MovimientoCobro[]
+
+  @@index([fecha])
+  @@index([clienteId])
+  @@map("ventas")
+}
+
+model VentaLote {
+  id               String         @id @default(uuid())
+  ventaId          String         @map("venta_id")
+  venta            Venta          @relation(fields: [ventaId], references: [id])
+  loteId           String         @map("lote_id")
+  lote             LoteInventario @relation(fields: [loteId], references: [id])
+  kilosConsumidos  Decimal        @map("kilos_consumidos") @db.Decimal(10, 2)
+  costoKgLote      Decimal        @map("costo_kg_lote") @db.Decimal(10, 2)
+
+  @@map("venta_lotes")
+}
+
+model MovimientoCobro {
+  id             String    @id @default(uuid())
+  clienteId      String    @map("cliente_id")
+  cliente        Cliente   @relation(fields: [clienteId], references: [id])
+  fecha          DateTime  @db.Date
+  monto          Decimal   @db.Decimal(12, 2)
+  medioPago      MedioPago @map("medio_pago")
+  referencia     String?
+  comprobanteUrl String?   @map("comprobante_url")
+  ventaId        String?   @map("venta_id")
+  venta          Venta?    @relation(fields: [ventaId], references: [id])
+  createdAt      DateTime  @default(now()) @map("created_at")
+  createdById    String?   @map("created_by")
+
+  @@index([clienteId])
+  @@map("movimientos_cobro")
+}
+
+model MovimientoPago {
+  id             String    @id @default(uuid())
+  proveedorId    String    @map("proveedor_id")
+  proveedor      Proveedor @relation(fields: [proveedorId], references: [id])
+  fecha          DateTime  @db.Date
+  monto          Decimal   @db.Decimal(12, 2)
+  medioPago      MedioPago @map("medio_pago")
+  referencia     String?
+  comprobanteUrl String?   @map("comprobante_url")
+  compraId       String?   @map("compra_id")
+  compra         Compra?   @relation(fields: [compraId], references: [id])
+  createdAt      DateTime  @default(now()) @map("created_at")
+  createdById    String?   @map("created_by")
+
+  @@index([proveedorId])
+  @@map("movimientos_pago")
+}
+
+model GastoOperacional {
+  id             String          @id @default(uuid())
+  fecha          DateTime        @db.Date
+  categoria      CategoriaGasto
+  descripcion    String?
+  pagadoA        String?         @map("pagado_a")
+  monto          Decimal         @db.Decimal(12, 2)
+  formaPago      FormaPagoGasto  @map("forma_pago")
+  estadoPago     EstadoPagoGasto @map("estado_pago")
+  comprobanteUrl String?         @map("comprobante_url")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  createdById    String?         @map("created_by")
+  createdBy      Usuario?        @relation(fields: [createdById], references: [id])
+
+  @@index([fecha])
+  @@map("gastos_operacionales")
+}
+
+model Prospecto {
+  id                  String           @id @default(uuid())
+  nombreEmpresa       String           @map("nombre_empresa")
+  telefonoWhatsapp    String?          @map("telefono_whatsapp")
+  contacto            String?
+  origen              OrigenProspecto?
+  etapa               EtapaProspecto   @default(nuevo)
+  fechaPrimerContacto DateTime?        @db.Date @map("fecha_primer_contacto")
+  ultimoContacto      DateTime?        @db.Date @map("ultimo_contacto")
+  proximaAccion       String?          @map("proxima_accion")
+  notas               String?
+  clienteId           String?          @map("cliente_id")
+  cliente             Cliente?         @relation(fields: [clienteId], references: [id])
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  @@map("prospectos")
+}
+
+model Alerta {
+  id           String        @id @default(uuid())
+  tipo         TipoAlerta
+  entidadTipo  EntidadAlerta @map("entidad_tipo")
+  entidadId    String        @map("entidad_id")
+  fechaDisparo DateTime      @map("fecha_disparo")
+  estado       EstadoAlerta  @default(pendiente)
+  canal        CanalAlerta   @default(push)
+  mensaje      String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  // Evita que el job de alertas duplique la misma alerta si corre más de una vez.
+  @@unique([tipo, entidadTipo, entidadId, fechaDisparo])
+  @@map("alertas")
+}
+
+model CreditoBancario {
+  id            String    @id @default(uuid())
+  institucion   String?
+  tipoCredito   String?   @map("tipo_credito")
+  montoOriginal Decimal?  @map("monto_original") @db.Decimal(12, 2)
+  nCuotas       Int?      @map("n_cuotas")
+  tasaInteres   Decimal?  @map("tasa_interes") @db.Decimal(6, 4)
+  fechaInicio   DateTime? @db.Date @map("fecha_inicio")
+
+  cuotas CuotaCredito[]
+
+  @@map("creditos_bancarios")
+}
+
+model CuotaCredito {
+  id               String          @id @default(uuid())
+  creditoId        String          @map("credito_id")
+  credito          CreditoBancario @relation(fields: [creditoId], references: [id])
+  nCuota           Int             @map("n_cuota")
+  fechaVencimiento DateTime        @db.Date @map("fecha_vencimiento")
+  capital          Decimal?        @db.Decimal(12, 2)
+  interes          Decimal?        @db.Decimal(12, 2)
+  montoCuota       Decimal?        @map("monto_cuota") @db.Decimal(12, 2)
+  estadoPago       EstadoPagoGasto @map("estado_pago")
+  saldoInsoluto    Decimal?        @map("saldo_insoluto") @db.Decimal(12, 2)
+
+  @@map("cuotas_credito")
+}
+
+/// Tabla de auditoría recomendada explícitamente en la sección 9 (NFR) para
+/// responder "quién cambió este número y cuándo" — no existe en el Excel actual.
+model AuditLog {
+  id           String   @id @default(uuid())
+  tabla        String
+  registroId   String   @map("registro_id")
+  accion       String
+  campoAntes   Json?    @map("campo_antes")
+  campoDespues Json?    @map("campo_despues")
+  usuarioId    String?  @map("usuario_id")
+  usuario      Usuario? @relation(fields: [usuarioId], references: [id])
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([tabla, registroId])
+  @@map("audit_log")
+}
