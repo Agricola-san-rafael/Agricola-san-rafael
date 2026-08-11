@@ -1,6 +1,7 @@
 import { env } from "@/lib/env";
 import { localStorageAdapter } from "./local";
 import { s3StorageAdapter } from "./s3";
+import { vercelBlobStorageAdapter } from "./vercel-blob";
 
 export interface SubidaArchivo {
   buffer: Buffer;
@@ -27,5 +28,7 @@ export interface StorageAdapter {
 }
 
 export function getStorageAdapter(): StorageAdapter {
-  return env.STORAGE_DRIVER === "s3" ? s3StorageAdapter : localStorageAdapter;
+  if (env.STORAGE_DRIVER === "vercel-blob") return vercelBlobStorageAdapter;
+  if (env.STORAGE_DRIVER === "s3") return s3StorageAdapter;
+  return localStorageAdapter;
 }
