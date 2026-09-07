@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,10 +12,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { NumericInput } from "@/components/forms/numeric-input";
 import { SelectField } from "@/components/forms/select-field";
+import { FacturaExtractor } from "@/components/forms/factura-extractor";
 import { todayLocalISODate } from "@/modules/shared/dates";
 import { useOfflineDraft, reintentarAlReconectar } from "@/hooks/useOfflineDraft";
 import { compraSchema } from "@/modules/compras/schema";
+import type { FacturaExtraida } from "@/modules/compras/extraer-factura";
 import type { Calibre, Proveedor, Variedad } from "@/generated/prisma/client";
+
+function normalizar(texto: string): string {
+  return texto
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
 
 type FormInput = z.input<typeof compraSchema>;
 type FormOutput = z.output<typeof compraSchema>;
@@ -43,6 +54,38 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
     formState: { errors, isSubmitting },
   } = form;
   const { limpiarBorrador } = useOfflineDraft("borrador-compra", form);
+  const [facturaExtraida, setFacturaExtraida] = useState<FacturaExtraida | null>(null);
+
+  function aplicarDatosFactura(factura: FacturaExtraida) {
+    if (factura.fecha) setValue("fecha", factura.fecha);
+    if (factura.nFactura) setValue("nFactura", factura.nFactura);
+    if (factura.neto !== null) setValue("neto", factura.neto);
+    if (factura.iva !== null) setValue("iva", factura.iva);
+
+    if (factura.proveedorNombre) {
+      const encontrado = proveedores.find((p) => normalizar(p.nombre) === normalizar(factura.proveedorNombre!));
+      if (encontrado) setValue("proveedorId", encontrado.id);
+      else toast.info(`No encontré al proveedor "${factura.proveedorNombre}" en la lista — selecciónalo a mano`);
+    }
+  }
+
+  function aplicarLinea(linea: FacturaExtraida["lineas"][number]) {
+    const variedadEncontrada = variedades.find((v) => normalizar(v.nombre) === normalizar(linea.variedad));
+    if (variedadEncontrada) {
+      setValue("variedadId", variedadEncontrada.id);
+      const calibreEncontrado = calibres.find(
+        (c) =>
+          normalizar(c.codigo) === normalizar(linea.calibre) &&
+          (!c.variedadId || c.variedadId === variedadEncontrada.id)
+      );
+      if (calibreEncontrado) setValue("calibreId", calibreEncontrado.id);
+      else toast.info(`No encontré el calibre "${linea.calibre}" — selecciónalo a mano`);
+    } else {
+      toast.info(`No encontré la variedad "${linea.variedad}" — selecciónala a mano`);
+    }
+    setValue("kilos", linea.kilos);
+    setValue("precioKg", linea.precioKg);
+  }
 
   const proveedorId = watch("proveedorId");
   const variedadId = watch("variedadId");
@@ -75,6 +118,35 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
 
   return (
     <form className="flex max-w-lg flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
+      <FacturaExtractor
+        onExtraido={(factura) => {
+          setFacturaExtraida(factura);
+          aplicarDatosFactura(factura);
+          if (factura.lineas.length === 1) aplicarLinea(factura.lineas[0]);
+        }}
+      />
+
+      {facturaExtraida && facturaExtraida.lineas.length > 1 && (
+        <div className="flex flex-col gap-2 rounded-md border p-3">
+          <p className="text-sm font-medium">Se detectaron varias líneas — elige cuál cargar:</p>
+          {facturaExtraida.lineas.map((linea, i) => (
+            <Button
+              key={i}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit justify-start"
+              onClick={() => aplicarLinea(linea)}
+            >
+              {linea.variedad} · {linea.calibre} · {linea.kilos} kg @ ${linea.precioKg}
+            </Button>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Cada línea es una compra distinta — carga una, guárdala, y repite con la siguiente.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         <Label htmlFor="fecha">Fecha</Label>
         <Input id="fecha" type="date" {...register("fecha")} />

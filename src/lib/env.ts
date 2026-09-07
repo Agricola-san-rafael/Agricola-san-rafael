@@ -10,6 +10,7 @@ const envSchema = z.object({
   STORAGE_DRIVER: z.enum(["local", "s3", "vercel-blob"]).default("local"),
   STORAGE_LOCAL_PATH: z.string().default("./storage/uploads"),
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
   ALERTA_DIAS_ANTICIPACION: z.coerce.number().default(2),
   ALERTA_DIAS_GASTO_PENDIENTE: z.coerce.number().default(5),
 });
