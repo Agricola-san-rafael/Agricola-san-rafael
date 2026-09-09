@@ -15,21 +15,23 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NumericInput } from "@/components/forms/numeric-input";
 import { SelectField } from "@/components/forms/select-field";
 import { todayLocalISODate } from "@/modules/shared/dates";
+import { formatCLP } from "@/modules/shared/money";
 import { useOfflineDraft, reintentarAlReconectar } from "@/hooks/useOfflineDraft";
 import { ventaSchema } from "@/modules/ventas/schema";
-import type { Calibre, Cliente, Variedad } from "@/generated/prisma/client";
+import type { obtenerLotesDisponibles } from "@/modules/inventario/service";
+import type { Cliente } from "@/generated/prisma/client";
 
 type FormInput = z.input<typeof ventaSchema>;
 type FormOutput = z.output<typeof ventaSchema>;
+type LoteDisponible = Awaited<ReturnType<typeof obtenerLotesDisponibles>>[number];
 
 interface VentaFormProps {
   clientes: Cliente[];
-  variedades: Variedad[];
-  calibres: Calibre[];
+  lotes: LoteDisponible[];
   esAdmin: boolean;
 }
 
-export function VentaForm({ clientes, variedades, calibres, esAdmin }: VentaFormProps) {
+export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
   const router = useRouter();
   const [kilosFaltantes, setKilosFaltantes] = useState<number | null>(null);
   const form = useForm<FormInput, unknown, FormOutput>({
@@ -53,8 +55,8 @@ export function VentaForm({ clientes, variedades, calibres, esAdmin }: VentaForm
   const { limpiarBorrador } = useOfflineDraft("borrador-venta", form);
 
   const clienteId = watch("clienteId");
-  const variedadId = watch("variedadId");
-  const calibreId = watch("calibreId");
+  const loteId = watch("loteId");
+  const loteSeleccionado = lotes.find((l) => l.id === loteId);
   const formaPago = watch("formaPago");
   const estadoPago = watch("estadoPago");
   const tipoDocumento = watch("tipoDocumento");
@@ -125,30 +127,23 @@ export function VentaForm({ clientes, variedades, calibres, esAdmin }: VentaForm
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label>Variedad</Label>
+        <Label>Lote (SKU)</Label>
         <SelectField
-          value={variedadId}
-          onValueChange={(value) => setValue("variedadId", value ?? "")}
-          options={variedades.map((v) => ({ value: v.id, label: v.nombre }))}
-          placeholder="Selecciona una variedad"
+          value={loteId}
+          onValueChange={(value) => setValue("loteId", value ?? "")}
+          options={lotes.map((l) => ({
+            value: l.id,
+            label: `${l.sku} — ${l.variedad.nombre} ${l.calibre.codigo} — ${Number(l.kilosDisponibles)} kg disp. — ${formatCLP(Number(l.costoKg))}/kg — ${l.compra.proveedor.nombre}`,
+          }))}
+          placeholder="Selecciona el lote a vender"
         />
-        {errors.variedadId && (
-          <p className="text-sm text-destructive">{errors.variedadId.message}</p>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label>Calibre</Label>
-        <SelectField
-          value={calibreId}
-          onValueChange={(value) => setValue("calibreId", value ?? "")}
-          options={calibres
-            .filter((c) => !c.variedadId || c.variedadId === variedadId)
-            .map((c) => ({ value: c.id, label: c.codigo }))}
-          placeholder="Selecciona un calibre"
-        />
-        {errors.calibreId && (
-          <p className="text-sm text-destructive">{errors.calibreId.message}</p>
+        {errors.loteId && <p className="text-sm text-destructive">{errors.loteId.message}</p>}
+        {loteSeleccionado && (
+          <p className="text-xs text-muted-foreground">
+            Disponible: {Number(loteSeleccionado.kilosDisponibles)} kg · Costo:{" "}
+            {formatCLP(Number(loteSeleccionado.costoKg))}/kg · Ingreso:{" "}
+            {new Date(loteSeleccionado.fechaIngreso).toLocaleDateString("es-CL")}
+          </p>
         )}
       </div>
 
@@ -224,7 +219,7 @@ export function VentaForm({ clientes, variedades, calibres, esAdmin }: VentaForm
         <Alert variant="destructive">
           <AlertTitle>Stock insuficiente</AlertTitle>
           <AlertDescription>
-            Faltan {kilosFaltantes} kg de esta variedad/calibre para cubrir la venta.
+            Faltan {kilosFaltantes} kg en este lote para cubrir la venta.
             {esAdmin
               ? " Como administrador, puedes forzar la venta (el lote quedará en negativo y se generará una alerta de seguimiento)."
               : " Contacta a un administrador si es necesario forzar la venta."}

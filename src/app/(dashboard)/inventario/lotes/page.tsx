@@ -17,14 +17,15 @@ export default async function LotesPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Lotes disponibles</h1>
       <p className="text-muted-foreground">
-        Ordenados por fecha de ingreso (el más antiguo primero) — así se consumen en el motor
-        FIFO al vender.
+        Cada lote tiene un código SKU único — al registrar una venta, eliges de cuál lote sale el
+        stock.
       </p>
 
       <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>SKU</TableHead>
               <TableHead>Ingreso</TableHead>
               <TableHead>Proveedor</TableHead>
               <TableHead>Variedad / Calibre</TableHead>
@@ -36,6 +37,7 @@ export default async function LotesPage() {
           <TableBody>
             {lotes.map((l) => (
               <TableRow key={l.id}>
+                <TableCell className="font-mono">{l.sku}</TableCell>
                 <TableCell>{formatDateCL(l.fechaIngreso)}</TableCell>
                 <TableCell>{l.compra.proveedor.nombre}</TableCell>
                 <TableCell>
@@ -48,7 +50,7 @@ export default async function LotesPage() {
             ))}
             {lotes.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Sin lotes disponibles.
                 </TableCell>
               </TableRow>

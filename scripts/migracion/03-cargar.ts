@@ -170,8 +170,10 @@ export async function cargarDatos(
             },
           });
 
+          const [{ nextval: skuNum }] = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('lote_sku_seq')`;
           const lote = await tx.loteInventario.create({
             data: {
+              sku: `LOTE-${skuNum.toString().padStart(4, "0")}`,
               compraId: compra.id,
               variedadId,
               calibreId,

@@ -251,6 +251,7 @@ model Compra {
 
 model LoteInventario {
   id               String     @id @default(uuid())
+  sku              String     @unique
   compraId         String     @unique @map("compra_id")
   compra           Compra     @relation(fields: [compraId], references: [id])
   variedadId       String     @map("variedad_id")

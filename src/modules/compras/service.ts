@@ -5,6 +5,12 @@ import { paginatedResponse, type PageParams } from "@/modules/shared/pagination"
 import { registrarAuditLog } from "@/modules/shared/audit";
 import type { CompraInput, CompraUpdateInput } from "./schema";
 
+/** Código correlativo legible para identificar el lote manualmente al vender (ej. LOTE-0125). */
+async function generarSkuLote(tx: Prisma.TransactionClient): Promise<string> {
+  const [{ nextval }] = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('lote_sku_seq')`;
+  return `LOTE-${nextval.toString().padStart(4, "0")}`;
+}
+
 export interface FiltrosCompras {
   desde?: string;
   hasta?: string;
@@ -76,6 +82,7 @@ export async function crearCompra(input: CompraInput, creadoPor: string) {
 
     await tx.loteInventario.create({
       data: {
+        sku: await generarSkuLote(tx),
         compraId: compra.id,
         variedadId: input.variedadId,
         calibreId: input.calibreId,

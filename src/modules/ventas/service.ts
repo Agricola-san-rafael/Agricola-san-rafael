@@ -1,16 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, type RolUsuario } from "@/generated/prisma/client";
-import { calcularConsumoFIFO, type LoteDisponible } from "./fifo";
-import { ConflictError, ForbiddenError, NotFoundError, StockInsuficienteError } from "@/modules/shared/errors";
+import { ForbiddenError, NotFoundError, StockInsuficienteError } from "@/modules/shared/errors";
 import { paginatedResponse, type PageParams } from "@/modules/shared/pagination";
 import { registrarAuditLog } from "@/modules/shared/audit";
 import type { VentaInput } from "./schema";
 
 interface LoteRow {
   id: string;
+  variedad_id: string;
+  calibre_id: string;
   kilos_disponibles: string;
   costo_kg: string;
-  fecha_ingreso: Date;
+  estado: string;
 }
 
 export interface FiltrosVentas {
@@ -58,10 +59,10 @@ export async function obtenerVenta(id: string) {
 }
 
 /**
- * Crea una venta ejecutando el motor FIFO (sección 4.2) dentro de una
- * transacción con bloqueo explícito de filas (SELECT ... FOR UPDATE) sobre
- * los lotes candidatos, para evitar condiciones de carrera entre ventas
- * simultáneas de la misma variedad/calibre.
+ * Crea una venta descontando de un lote elegido manualmente por SKU
+ * (decisión del usuario 09-09-2026, reemplaza el consumo automático FIFO)
+ * dentro de una transacción con bloqueo explícito (SELECT ... FOR UPDATE)
+ * para evitar condiciones de carrera entre ventas simultáneas del mismo lote.
  */
 export async function crearVenta(input: VentaInput, usuarioId: string, rol: RolUsuario) {
   const kilosSolicitados = new Prisma.Decimal(input.kilos);
@@ -76,47 +77,26 @@ export async function crearVenta(input: VentaInput, usuarioId: string, rol: RolU
   try {
     return await prisma.$transaction(async (tx) => {
       const lotesRaw = await tx.$queryRaw<LoteRow[]>`
-        SELECT id, kilos_disponibles, costo_kg, fecha_ingreso
+        SELECT id, variedad_id, calibre_id, kilos_disponibles, costo_kg, estado
         FROM lotes_inventario
-        WHERE variedad_id = ${input.variedadId}
-          AND calibre_id = ${input.calibreId}
-          AND kilos_disponibles > 0
-        ORDER BY fecha_ingreso ASC
+        WHERE id = ${input.loteId}
         FOR UPDATE
       `;
+      const lote = lotesRaw[0];
+      if (!lote) throw new NotFoundError("Lote no encontrado");
 
-      const lotes: LoteDisponible[] = lotesRaw.map((r) => ({
-        id: r.id,
-        kilosDisponibles: new Prisma.Decimal(r.kilos_disponibles),
-        costoKg: new Prisma.Decimal(r.costo_kg),
-        fechaIngreso: r.fecha_ingreso,
-      }));
-
-      const { consumos, kilosFaltantes } = calcularConsumoFIFO(lotes, kilosSolicitados);
+      const kilosDisponibles = new Prisma.Decimal(lote.kilos_disponibles);
+      const costoKgLote = new Prisma.Decimal(lote.costo_kg);
+      const kilosFaltantes = kilosSolicitados.gt(kilosDisponibles)
+        ? kilosSolicitados.sub(kilosDisponibles)
+        : new Prisma.Decimal(0);
 
       if (kilosFaltantes.gt(0) && !forzar) {
         throw new StockInsuficienteError(kilosFaltantes.toNumber());
       }
 
-      let consumosFinales = consumos;
       const fueForzada = kilosFaltantes.gt(0) && forzar;
-      if (fueForzada) {
-        if (consumos.length === 0) {
-          throw new ConflictError(
-            "No existe ningún lote de esta variedad/calibre — no hay nada que forzar"
-          );
-        }
-        const ultimo = consumos[consumos.length - 1];
-        consumosFinales = [
-          ...consumos.slice(0, -1),
-          { ...ultimo, kilosConsumidos: ultimo.kilosConsumidos.add(kilosFaltantes) },
-        ];
-      }
-
-      const costoTotal = consumosFinales.reduce(
-        (acc, c) => acc.add(c.kilosConsumidos.mul(c.costoKgLote)),
-        new Prisma.Decimal(0)
-      );
+      const costoTotal = kilosSolicitados.mul(costoKgLote);
       const margen = total.sub(costoTotal);
       const margenPct = total.gt(0) ? margen.div(total) : new Prisma.Decimal(0);
 
@@ -124,8 +104,8 @@ export async function crearVenta(input: VentaInput, usuarioId: string, rol: RolU
         data: {
           fecha: new Date(input.fecha),
           clienteId: input.clienteId,
-          variedadId: input.variedadId,
-          calibreId: input.calibreId,
+          variedadId: lote.variedad_id,
+          calibreId: lote.calibre_id,
           kilos: kilosSolicitados,
           precioKg,
           total,
@@ -142,28 +122,23 @@ export async function crearVenta(input: VentaInput, usuarioId: string, rol: RolU
         },
       });
 
-      for (const consumo of consumosFinales) {
-        await tx.ventaLote.create({
-          data: {
-            ventaId: venta.id,
-            loteId: consumo.loteId,
-            kilosConsumidos: consumo.kilosConsumidos,
-            costoKgLote: consumo.costoKgLote,
-          },
-        });
+      await tx.ventaLote.create({
+        data: {
+          ventaId: venta.id,
+          loteId: lote.id,
+          kilosConsumidos: kilosSolicitados,
+          costoKgLote,
+        },
+      });
 
-        const loteActualizado = await tx.loteInventario.update({
-          where: { id: consumo.loteId },
-          data: { kilosDisponibles: { decrement: consumo.kilosConsumidos } },
-        });
-
-        if (loteActualizado.kilosDisponibles.lte(0) && loteActualizado.estado !== "agotado") {
-          await tx.loteInventario.update({
-            where: { id: consumo.loteId },
-            data: { estado: "agotado" },
-          });
-        }
-      }
+      const kilosRestantes = kilosDisponibles.sub(kilosSolicitados);
+      await tx.loteInventario.update({
+        where: { id: lote.id },
+        data: {
+          kilosDisponibles: kilosRestantes,
+          estado: kilosRestantes.lte(0) ? "agotado" : undefined,
+        },
+      });
 
       if (fueForzada) {
         await tx.alerta.create({
@@ -208,7 +183,7 @@ export async function crearVenta(input: VentaInput, usuarioId: string, rol: RolU
             entidadId: input.clienteId,
             fechaDisparo: new Date(),
             canal: "push",
-            mensaje: `Intento de venta bloqueado: faltaron ${error.kilosFaltantes} kg de variedad/calibre solicitado`,
+            mensaje: `Intento de venta bloqueado: faltaron ${error.kilosFaltantes} kg del lote seleccionado`,
           },
         })
         .catch(() => {

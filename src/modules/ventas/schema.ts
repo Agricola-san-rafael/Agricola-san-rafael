@@ -8,8 +8,7 @@ const numeroPositivo = z.preprocess(
 export const ventaSchema = z.object({
   fecha: z.string().min(1, "La fecha es obligatoria"),
   clienteId: z.string().uuid("Selecciona un cliente"),
-  variedadId: z.string().uuid("Selecciona una variedad"),
-  calibreId: z.string().uuid("Selecciona un calibre"),
+  loteId: z.string().uuid("Selecciona un lote"),
   kilos: numeroPositivo,
   precioKg: numeroPositivo,
   formaPago: z.enum(["contado", "credito"]),
