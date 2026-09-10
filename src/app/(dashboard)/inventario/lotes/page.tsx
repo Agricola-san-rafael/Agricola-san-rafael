@@ -6,12 +6,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getSession } from "@/lib/auth";
 import { obtenerLotesDisponibles } from "@/modules/inventario/service";
 import { formatDateCL } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
+import { AjustarStockDialog } from "./ajustar-stock-dialog";
 
 export default async function LotesPage() {
-  const lotes = await obtenerLotesDisponibles();
+  const [session, lotes] = await Promise.all([getSession(), obtenerLotesDisponibles()]);
+  const esAdmin = session?.rol === "admin";
 
   return (
     <div className="flex flex-col gap-4">
@@ -32,6 +35,7 @@ export default async function LotesPage() {
               <TableHead className="text-right">Iniciales</TableHead>
               <TableHead className="text-right">Disponibles</TableHead>
               <TableHead className="text-right">Costo/kg</TableHead>
+              {esAdmin && <TableHead className="text-right">Acciones</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -46,11 +50,20 @@ export default async function LotesPage() {
                 <TableCell className="text-right">{Number(l.kilosIniciales)} kg</TableCell>
                 <TableCell className="text-right">{Number(l.kilosDisponibles)} kg</TableCell>
                 <TableCell className="text-right">{formatCLP(Number(l.costoKg))}</TableCell>
+                {esAdmin && (
+                  <TableCell className="text-right">
+                    <AjustarStockDialog
+                      loteId={l.id}
+                      sku={l.sku}
+                      kilosDisponibles={Number(l.kilosDisponibles)}
+                    />
+                  </TableCell>
+                )}
               </TableRow>
             ))}
             {lotes.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={esAdmin ? 8 : 7} className="text-center text-muted-foreground">
                   Sin lotes disponibles.
                 </TableCell>
               </TableRow>
