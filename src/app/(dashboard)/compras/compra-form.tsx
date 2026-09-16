@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,13 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NumericInput } from "@/components/forms/numeric-input";
 import { SelectField } from "@/components/forms/select-field";
 import { FacturaExtractor } from "@/components/forms/factura-extractor";
-import { todayLocalISODate } from "@/modules/shared/dates";
+import { todayLocalISODate, formatDateCL } from "@/modules/shared/dates";
+import { formatCLP } from "@/modules/shared/money";
 import { useOfflineDraft, reintentarAlReconectar } from "@/hooks/useOfflineDraft";
 import { compraSchema } from "@/modules/compras/schema";
 import type { FacturaExtraida } from "@/modules/compras/extraer-factura";
+import type { CompraDuplicada } from "@/modules/compras/service";
 import type { Calibre, Proveedor, Variedad } from "@/generated/prisma/client";
 
 function normalizar(texto: string): string {
@@ -55,6 +58,7 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
   } = form;
   const { limpiarBorrador } = useOfflineDraft("borrador-compra", form);
   const [facturaExtraida, setFacturaExtraida] = useState<FacturaExtraida | null>(null);
+  const [facturasDuplicadas, setFacturasDuplicadas] = useState<CompraDuplicada[]>([]);
 
   function aplicarDatosFactura(factura: FacturaExtraida) {
     if (factura.fecha) setValue("fecha", factura.fecha);
@@ -92,6 +96,28 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
   const calibreId = watch("calibreId");
   const formaPago = watch("formaPago");
   const estadoPago = watch("estadoPago");
+  const nFactura = watch("nFactura");
+
+  useEffect(() => {
+    if (!proveedorId || !nFactura?.trim()) {
+      setFacturasDuplicadas([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      fetch(
+        `/api/v1/compras/verificar-factura?proveedorId=${proveedorId}&nFactura=${encodeURIComponent(nFactura.trim())}`,
+        { signal: controller.signal }
+      )
+        .then((res) => res.json())
+        .then((data) => setFacturasDuplicadas(data.duplicadas ?? []))
+        .catch(() => {});
+    }, 500);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [proveedorId, nFactura]);
 
   async function onSubmit(values: FormOutput) {
     let res: Response;
@@ -262,6 +288,20 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
         <Label htmlFor="observaciones">Observaciones</Label>
         <Textarea id="observaciones" {...register("observaciones")} />
       </div>
+
+      {facturasDuplicadas.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTitle>Ya existe una compra con este N° de factura</AlertTitle>
+          <AlertDescription>
+            {facturasDuplicadas.map((c) => (
+              <div key={c.id}>
+                {formatDateCL(c.fecha)} · {Number(c.kilos)} kg · {formatCLP(Number(c.total))}
+              </div>
+            ))}
+            Revisa que no sea un duplicado antes de guardar.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Button type="submit" disabled={isSubmitting} className="mt-2 w-fit">
         {isSubmitting ? "Guardando..." : "Registrar compra"}

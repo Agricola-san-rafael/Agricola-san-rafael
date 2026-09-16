@@ -41,6 +41,29 @@ export async function listarCompras(params: PageParams, filtros: FiltrosCompras)
   return paginatedResponse(data, total, params);
 }
 
+export interface CompraDuplicada {
+  id: string;
+  fecha: Date;
+  kilos: Prisma.Decimal;
+  total: Prisma.Decimal;
+}
+
+/**
+ * No hay restricción de unicidad en n_factura (a veces un proveedor repite
+ * un folio por error), así que esto es solo un aviso para que el usuario
+ * confirme antes de guardar — no bloquea el registro de la compra.
+ */
+export async function buscarFacturasDuplicadas(
+  proveedorId: string,
+  nFactura: string
+): Promise<CompraDuplicada[]> {
+  return prisma.compra.findMany({
+    where: { proveedorId, nFactura: { equals: nFactura.trim(), mode: "insensitive" } },
+    select: { id: true, fecha: true, kilos: true, total: true },
+    orderBy: { fecha: "desc" },
+  });
+}
+
 export async function obtenerCompra(id: string) {
   const compra = await prisma.compra.findUnique({
     where: { id },
