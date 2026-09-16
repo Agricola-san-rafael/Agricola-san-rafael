@@ -117,6 +117,23 @@ export async function crearCompra(input: CompraInput, creadoPor: string) {
       },
     });
 
+    // El saldo pendiente del proveedor se calcula desde movimientos_pago,
+    // no desde este campo (ver vista_saldo_proveedores) — sin esto, marcar
+    // una compra "pagado" al crearla no bajaba la deuda real.
+    if (input.estadoPago === "pagado") {
+      await tx.movimientoPago.create({
+        data: {
+          proveedorId: input.proveedorId,
+          compraId: compra.id,
+          fecha: new Date(input.fecha),
+          monto: total,
+          medioPago: "otro",
+          referencia: "Pago registrado automáticamente al crear la compra como pagada",
+          createdById: creadoPor,
+        },
+      });
+    }
+
     await registrarAuditLog(tx, {
       tabla: "compras",
       registroId: compra.id,

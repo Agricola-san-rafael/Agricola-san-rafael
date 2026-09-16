@@ -131,6 +131,23 @@ export async function crearVenta(input: VentaInput, usuarioId: string, rol: RolU
         },
       });
 
+      // El saldo pendiente del cliente se calcula desde movimientos_cobro,
+      // no desde este campo (ver vista_saldo_clientes) — sin esto, marcar
+      // una venta "pagado" al crearla no bajaba el saldo real.
+      if (input.estadoPago === "pagado") {
+        await tx.movimientoCobro.create({
+          data: {
+            clienteId: input.clienteId,
+            ventaId: venta.id,
+            fecha: new Date(input.fecha),
+            monto: total,
+            medioPago: "otro",
+            referencia: "Pago registrado automáticamente al crear la venta como pagada",
+            createdById: usuarioId,
+          },
+        });
+      }
+
       const kilosRestantes = kilosDisponibles.sub(kilosSolicitados);
       await tx.loteInventario.update({
         where: { id: lote.id },
