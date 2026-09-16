@@ -19,12 +19,16 @@ const DEBOUNCE_MS = 500;
  */
 export function useOfflineDraft<T extends FieldValues>(draftKey: string, form: UseFormReturn<T>) {
   const restaurado = useRef(false);
+  const modificado = useRef(false);
 
   useEffect(() => {
     if (restaurado.current) return;
     restaurado.current = true;
     get(draftKey).then((borrador) => {
-      if (borrador) {
+      // Si el formulario ya cambió (ej. datos autocompletados desde una
+      // factura) mientras esperábamos IndexedDB, no lo pisamos con un
+      // borrador viejo — se perdería lo recién cargado (sección 9).
+      if (borrador && !modificado.current) {
         form.reset(borrador);
         toast.info("Se restauró un borrador que habías dejado sin enviar");
       }
@@ -35,6 +39,7 @@ export function useOfflineDraft<T extends FieldValues>(draftKey: string, form: U
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
     const subscription = form.watch((values) => {
+      modificado.current = true;
       clearTimeout(timeout);
       timeout = setTimeout(() => {
         set(draftKey, values).catch(() => {});
