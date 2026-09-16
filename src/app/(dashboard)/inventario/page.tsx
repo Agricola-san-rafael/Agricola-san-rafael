@@ -16,9 +16,14 @@ export default async function InventarioPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Inventario</h1>
-        <Link href="/inventario/lotes" className="text-sm text-primary hover:underline">
-          Ver detalle de lotes
-        </Link>
+        <div className="flex gap-3">
+          <Link href="/inventario/lotes" className="text-sm text-primary hover:underline">
+            Ver detalle de lotes
+          </Link>
+          <Link href="/inventario/cajas" className="text-sm text-primary hover:underline">
+            Ver cajas
+          </Link>
+        </div>
       </div>
       <p className="text-muted-foreground">
         Stock actual agregado por variedad y calibre (calculado en vivo desde los lotes).

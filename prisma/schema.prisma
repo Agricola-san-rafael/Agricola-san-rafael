@@ -436,6 +436,21 @@ model CuotaCredito {
   @@map("cuotas_credito")
 }
 
+/// Stock manual de cajas reutilizables (gamelas/toros, cocheceras, caja
+/// blanca, bins) usadas para almacenar/transportar la palta — se ajusta a
+/// mano (igual que el stock de un lote), no se descuenta automáticamente
+/// al comprar o vender.
+model TipoCaja {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  capacidadKg Decimal? @map("capacidad_kg") @db.Decimal(6, 2)
+  stockActual Int      @default(0) @map("stock_actual")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("tipos_caja")
+}
+
 /// Tabla de auditoría recomendada explícitamente en la sección 9 (NFR) para
 /// responder "quién cambió este número y cuándo" — no existe en el Excel actual.
 model AuditLog {

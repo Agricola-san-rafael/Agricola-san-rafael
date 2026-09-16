@@ -41,6 +41,20 @@ async function main() {
     }
   }
 
+  const TIPOS_CAJA = [
+    { nombre: "Gamelas o Toros", capacidadKg: 15 },
+    { nombre: "Cocheceras", capacidadKg: 20 },
+    { nombre: "Caja blanca", capacidadKg: 10 },
+    { nombre: "Bins", capacidadKg: null },
+  ];
+  for (const tipo of TIPOS_CAJA) {
+    await prisma.tipoCaja.upsert({
+      where: { nombre: tipo.nombre },
+      update: {},
+      create: { nombre: tipo.nombre, capacidadKg: tipo.capacidadKg },
+    });
+  }
+
   const adminEmail = "admin@agricolasanrafael.cl";
   const adminPasswordPlano = "CambiarEsta123!";
   const passwordHash = await argon2.hash(adminPasswordPlano);
