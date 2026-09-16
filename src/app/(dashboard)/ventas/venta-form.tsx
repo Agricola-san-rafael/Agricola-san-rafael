@@ -14,12 +14,22 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NumericInput } from "@/components/forms/numeric-input";
 import { SelectField } from "@/components/forms/select-field";
+import { VentaExtractor } from "@/components/forms/venta-extractor";
 import { todayLocalISODate } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
 import { useOfflineDraft, reintentarAlReconectar } from "@/hooks/useOfflineDraft";
 import { ventaSchema } from "@/modules/ventas/schema";
+import type { VentaExtraida } from "@/modules/ventas/extraer-venta";
 import type { obtenerLotesDisponibles } from "@/modules/inventario/service";
 import type { Cliente } from "@/generated/prisma/client";
+
+function normalizar(texto: string): string {
+  return texto
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
 
 type FormInput = z.input<typeof ventaSchema>;
 type FormOutput = z.output<typeof ventaSchema>;
@@ -53,6 +63,47 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
     formState: { errors, isSubmitting },
   } = form;
   const { limpiarBorrador } = useOfflineDraft("borrador-venta", form);
+  const [ventaExtraida, setVentaExtraida] = useState<VentaExtraida | null>(null);
+
+  function aplicarDatosVenta(venta: VentaExtraida) {
+    if (venta.fecha) setValue("fecha", venta.fecha);
+    if (venta.formaPago) setValue("formaPago", venta.formaPago);
+    if (venta.estadoPago) setValue("estadoPago", venta.estadoPago);
+    if (venta.nDocumento) setValue("nDocumento", venta.nDocumento);
+
+    if (venta.clienteNombre) {
+      const encontrado = clientes.find((c) => normalizar(c.nombre) === normalizar(venta.clienteNombre!));
+      if (encontrado) setValue("clienteId", encontrado.id);
+      else toast.info(`No encontré al cliente "${venta.clienteNombre}" en la lista — selecciónalo a mano`);
+    }
+  }
+
+  function aliasCalibre(codigo: string): string {
+    const n = normalizar(codigo);
+    if (n === "comercial a") return "com a";
+    if (n === "comercial b") return "com b";
+    if (n === "comercial c") return "com c";
+    return n;
+  }
+
+  function aplicarLineaVenta(linea: VentaExtraida["lineas"][number]) {
+    const candidatos = lotes.filter(
+      (l) =>
+        normalizar(l.variedad.nombre) === normalizar(linea.variedad) &&
+        aliasCalibre(l.calibre.codigo) === aliasCalibre(linea.calibre)
+    );
+    if (candidatos.length === 0) {
+      toast.info(`No encontré un lote disponible de ${linea.variedad} ${linea.calibre} — selecciónalo a mano`);
+      setValue("kilos", linea.kilos);
+      setValue("precioKg", linea.precioKg);
+      return;
+    }
+    const lote =
+      candidatos.find((l) => Number(l.kilosDisponibles) >= linea.kilos) ?? candidatos[0];
+    setValue("loteId", lote.id);
+    setValue("kilos", linea.kilos);
+    setValue("precioKg", linea.precioKg);
+  }
 
   const clienteId = watch("clienteId");
   const loteId = watch("loteId");
@@ -107,6 +158,35 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
 
   return (
     <form className="flex max-w-lg flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
+      <VentaExtractor
+        onExtraido={(venta) => {
+          setVentaExtraida(venta);
+          aplicarDatosVenta(venta);
+          if (venta.lineas.length === 1) aplicarLineaVenta(venta.lineas[0]);
+        }}
+      />
+
+      {ventaExtraida && ventaExtraida.lineas.length > 1 && (
+        <div className="flex flex-col gap-2 rounded-md border p-3">
+          <p className="text-sm font-medium">Se detectaron varias líneas — elige cuál cargar:</p>
+          {ventaExtraida.lineas.map((linea, i) => (
+            <Button
+              key={i}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit justify-start"
+              onClick={() => aplicarLineaVenta(linea)}
+            >
+              {linea.variedad} · {linea.calibre} · {linea.kilos} kg @ ${linea.precioKg}
+            </Button>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Cada línea es una venta distinta — carga una, guárdala, y repite con la siguiente.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         <Label htmlFor="fecha">Fecha</Label>
         <Input id="fecha" type="date" {...register("fecha")} />
