@@ -3,18 +3,28 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
 import { handleApiError } from "@/modules/shared/http";
-import { buscarFacturasDuplicadas } from "@/modules/compras/service";
+import { buscarComprasDuplicadas } from "@/modules/compras/service";
 
 export async function GET(request: Request) {
   try {
     await requireSession();
     const { searchParams } = new URL(request.url);
     const proveedorId = searchParams.get("proveedorId");
-    const nFactura = searchParams.get("nFactura");
-    if (!proveedorId || !nFactura) {
+    if (!proveedorId) {
       return NextResponse.json({ duplicadas: [] });
     }
-    const duplicadas = await buscarFacturasDuplicadas(proveedorId, nFactura);
+
+    const nFactura = searchParams.get("nFactura") ?? undefined;
+    const fecha = searchParams.get("fecha") ?? undefined;
+    const calibreId = searchParams.get("calibreId") ?? undefined;
+    const kilosParam = searchParams.get("kilos");
+    const kilos = kilosParam ? Number(kilosParam) : undefined;
+
+    if (!nFactura?.trim() && !(fecha && calibreId && kilos)) {
+      return NextResponse.json({ duplicadas: [] });
+    }
+
+    const duplicadas = await buscarComprasDuplicadas({ proveedorId, nFactura, fecha, calibreId, kilos });
     return NextResponse.json({ duplicadas });
   } catch (error) {
     return handleApiError(error);

@@ -46,22 +46,57 @@ export interface CompraDuplicada {
   fecha: Date;
   kilos: Prisma.Decimal;
   total: Prisma.Decimal;
+  motivo: string;
+}
+
+interface BuscarDuplicadasParams {
+  proveedorId: string;
+  nFactura?: string;
+  fecha?: string;
+  calibreId?: string;
+  kilos?: number;
 }
 
 /**
- * No hay restricción de unicidad en n_factura (a veces un proveedor repite
- * un folio por error), así que esto es solo un aviso para que el usuario
- * confirme antes de guardar — no bloquea el registro de la compra.
+ * No hay restricción de unicidad en n_factura ni forma de evitar cargar la
+ * misma compra dos veces (a veces un proveedor repite un folio por error, o
+ * simplemente no siempre hay factura) — esto es solo un aviso para que el
+ * usuario confirme antes de guardar, no bloquea el registro.
  */
-export async function buscarFacturasDuplicadas(
-  proveedorId: string,
-  nFactura: string
-): Promise<CompraDuplicada[]> {
-  return prisma.compra.findMany({
-    where: { proveedorId, nFactura: { equals: nFactura.trim(), mode: "insensitive" } },
-    select: { id: true, fecha: true, kilos: true, total: true },
-    orderBy: { fecha: "desc" },
-  });
+export async function buscarComprasDuplicadas(params: BuscarDuplicadasParams): Promise<CompraDuplicada[]> {
+  const encontradas = new Map<string, CompraDuplicada>();
+  const select = { id: true, fecha: true, kilos: true, total: true } as const;
+
+  if (params.nFactura?.trim()) {
+    const porFactura = await prisma.compra.findMany({
+      where: { proveedorId: params.proveedorId, nFactura: { equals: params.nFactura.trim(), mode: "insensitive" } },
+      select,
+      orderBy: { fecha: "desc" },
+    });
+    for (const c of porFactura) {
+      encontradas.set(c.id, { ...c, motivo: "Mismo N° de factura" });
+    }
+  }
+
+  if (params.fecha && params.calibreId && params.kilos) {
+    const porSimilitud = await prisma.compra.findMany({
+      where: {
+        proveedorId: params.proveedorId,
+        calibreId: params.calibreId,
+        fecha: new Date(params.fecha),
+        kilos: params.kilos,
+      },
+      select,
+      orderBy: { fecha: "desc" },
+    });
+    for (const c of porSimilitud) {
+      if (!encontradas.has(c.id)) {
+        encontradas.set(c.id, { ...c, motivo: "Misma fecha, calibre y kilos" });
+      }
+    }
+  }
+
+  return [...encontradas.values()];
 }
 
 export async function obtenerCompra(id: string) {

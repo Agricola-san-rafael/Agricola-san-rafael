@@ -97,18 +97,26 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
   const formaPago = watch("formaPago");
   const estadoPago = watch("estadoPago");
   const nFactura = watch("nFactura");
+  const fecha = watch("fecha");
+  const kilos = watch("kilos");
 
   useEffect(() => {
-    if (!proveedorId || !nFactura?.trim()) {
+    const tieneFactura = Boolean(nFactura?.trim());
+    const tieneSimilitud = Boolean(fecha && calibreId && kilos);
+    if (!proveedorId || (!tieneFactura && !tieneSimilitud)) {
       setFacturasDuplicadas([]);
       return;
     }
     const controller = new AbortController();
     const timeout = setTimeout(() => {
-      fetch(
-        `/api/v1/compras/verificar-factura?proveedorId=${proveedorId}&nFactura=${encodeURIComponent(nFactura.trim())}`,
-        { signal: controller.signal }
-      )
+      const params = new URLSearchParams({ proveedorId });
+      if (tieneFactura) params.set("nFactura", nFactura!.trim());
+      if (tieneSimilitud) {
+        params.set("fecha", fecha!);
+        params.set("calibreId", calibreId);
+        params.set("kilos", String(kilos));
+      }
+      fetch(`/api/v1/compras/verificar-factura?${params.toString()}`, { signal: controller.signal })
         .then((res) => res.json())
         .then((data) => setFacturasDuplicadas(data.duplicadas ?? []))
         .catch(() => {});
@@ -117,7 +125,7 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [proveedorId, nFactura]);
+  }, [proveedorId, nFactura, fecha, calibreId, kilos]);
 
   async function onSubmit(values: FormOutput) {
     let res: Response;
@@ -291,11 +299,11 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
 
       {facturasDuplicadas.length > 0 && (
         <Alert variant="destructive">
-          <AlertTitle>Ya existe una compra con este N° de factura</AlertTitle>
+          <AlertTitle>Posible compra duplicada</AlertTitle>
           <AlertDescription>
             {facturasDuplicadas.map((c) => (
               <div key={c.id}>
-                {formatDateCL(c.fecha)} · {Number(c.kilos)} kg · {formatCLP(Number(c.total))}
+                {formatDateCL(c.fecha)} · {Number(c.kilos)} kg · {formatCLP(Number(c.total))} — {c.motivo}
               </div>
             ))}
             Revisa que no sea un duplicado antes de guardar.
