@@ -10,9 +10,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { ICONOS_NAV, type IconoNav } from "./nav-icons";
 
 interface BottomNavProps {
-  otrosLinks: { href: string; label: string }[];
+  otrosLinks: { href: string; label: string; iconKey: IconoNav }[];
 }
 
 const ITEMS_PRINCIPALES = [
@@ -52,16 +53,20 @@ export function BottomNav({ otrosLinks }: BottomNavProps) {
             <SheetTitle>Más opciones</SheetTitle>
           </SheetHeader>
           <div className="flex flex-col gap-1 p-4 pt-0">
-            {otrosLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setAbierto(false)}
-                className="rounded-md px-3 py-2 text-sm hover:bg-muted"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {otrosLinks.map((link) => {
+              const Icono = ICONOS_NAV[link.iconKey];
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setAbierto(false)}
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
+                >
+                  <Icono className="size-4" />
+                  {link.label}
+                </Link>
+              );
+            })}
           </div>
         </SheetContent>
       </Sheet>

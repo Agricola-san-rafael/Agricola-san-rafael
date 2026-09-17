@@ -6,22 +6,30 @@ import { contarAlertasPendientes } from "@/modules/alertas/service";
 import { LogoutButton } from "./logout-button";
 import { SessionRefresher } from "./session-refresher";
 import { BottomNav } from "./bottom-nav";
+import { ICONOS_NAV, type IconoNav } from "./nav-icons";
 
 function navLinks(alertasPendientes: number, esAdmin: boolean) {
   return [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/compras", label: "Compras" },
-    { href: "/ventas", label: "Ventas" },
-    { href: "/inventario", label: "Inventario" },
-    { href: "/clientes", label: "Clientes" },
-    { href: "/proveedores", label: "Proveedores" },
-    { href: "/gastos", label: "Gastos" },
-    { href: "/flujo-caja", label: "Flujo de caja" },
-    { href: "/alertas", label: "Alertas", badge: alertasPendientes || undefined },
-    { href: "/reportes", label: "Reportes" },
-    { href: "/configuracion/variedades", label: "Variedades" },
-    { href: "/configuracion/calibres", label: "Calibres" },
-    ...(esAdmin ? [{ href: "/configuracion/auditoria", label: "Auditoría" }] : []),
+    { href: "/dashboard", label: "Dashboard", iconKey: "dashboard" as IconoNav },
+    { href: "/compras", label: "Compras", iconKey: "compras" as IconoNav },
+    { href: "/ventas", label: "Ventas", iconKey: "ventas" as IconoNav },
+    { href: "/inventario", label: "Inventario", iconKey: "inventario" as IconoNav },
+    { href: "/clientes", label: "Clientes", iconKey: "clientes" as IconoNav },
+    { href: "/proveedores", label: "Proveedores", iconKey: "proveedores" as IconoNav },
+    { href: "/gastos", label: "Gastos", iconKey: "gastos" as IconoNav },
+    { href: "/flujo-caja", label: "Flujo de caja", iconKey: "flujoCaja" as IconoNav },
+    {
+      href: "/alertas",
+      label: "Alertas",
+      iconKey: "alertas" as IconoNav,
+      badge: alertasPendientes || undefined,
+    },
+    { href: "/reportes", label: "Reportes", iconKey: "reportes" as IconoNav },
+    { href: "/configuracion/variedades", label: "Variedades", iconKey: "variedades" as IconoNav },
+    { href: "/configuracion/calibres", label: "Calibres", iconKey: "calibres" as IconoNav },
+    ...(esAdmin
+      ? [{ href: "/configuracion/auditoria", label: "Auditoría", iconKey: "auditoria" as IconoNav }]
+      : []),
   ];
 }
 
@@ -42,12 +50,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <LogoutButton />
       </header>
       <nav className="hidden flex-wrap gap-1 border-b bg-muted/30 px-4 py-2 md:flex">
-        {NAV_LINKS.map((link) => (
+        {NAV_LINKS.map((link) => {
+          const Icono = ICONOS_NAV[link.iconKey];
+          return (
           <Link
             key={link.href}
             href={link.href}
-            className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
           >
+            <Icono className="size-4" />
             {link.label}
             {link.badge !== undefined && (
               <Badge variant="destructive" className="px-1.5 py-0 text-[0.65rem]">
@@ -55,7 +66,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
               </Badge>
             )}
           </Link>
-        ))}
+          );
+        })}
       </nav>
       <main className="flex-1 p-4 pb-20 md:pb-4">{children}</main>
       <BottomNav otrosLinks={NAV_LINKS} />
