@@ -12,6 +12,7 @@ import {
   Leaf,
   Ruler,
   ShieldCheck,
+  UserCog,
 } from "lucide-react";
 
 export type IconoNav =
@@ -27,7 +28,8 @@ export type IconoNav =
   | "reportes"
   | "variedades"
   | "calibres"
-  | "auditoria";
+  | "auditoria"
+  | "usuarios";
 
 export const ICONOS_NAV: Record<IconoNav, typeof LayoutDashboard> = {
   dashboard: LayoutDashboard,
@@ -43,4 +45,5 @@ export const ICONOS_NAV: Record<IconoNav, typeof LayoutDashboard> = {
   variedades: Leaf,
   calibres: Ruler,
   auditoria: ShieldCheck,
+  usuarios: UserCog,
 };

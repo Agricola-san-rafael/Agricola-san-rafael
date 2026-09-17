@@ -28,7 +28,10 @@ function navLinks(alertasPendientes: number, esAdmin: boolean) {
     { href: "/configuracion/variedades", label: "Variedades", iconKey: "variedades" as IconoNav },
     { href: "/configuracion/calibres", label: "Calibres", iconKey: "calibres" as IconoNav },
     ...(esAdmin
-      ? [{ href: "/configuracion/auditoria", label: "Auditoría", iconKey: "auditoria" as IconoNav }]
+      ? [
+          { href: "/configuracion/auditoria", label: "Auditoría", iconKey: "auditoria" as IconoNav },
+          { href: "/configuracion/usuarios", label: "Usuarios", iconKey: "usuarios" as IconoNav },
+        ]
       : []),
   ];
 }
