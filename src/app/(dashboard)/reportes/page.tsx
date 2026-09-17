@@ -16,6 +16,7 @@ import {
 } from "@/modules/reportes/service";
 import { formatCLP } from "@/modules/shared/money";
 import { formatDateCL } from "@/modules/shared/dates";
+import { RankingBarChart } from "@/components/charts/ranking-bar-chart";
 
 export default async function ReportesPage() {
   const [kpis, concentracion, vencidas, descalce] = await Promise.all([
@@ -103,7 +104,8 @@ export default async function ReportesPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <div>
           <h2 className="mb-2 text-lg font-medium">Top clientes por volumen</h2>
-          <div className="overflow-x-auto rounded-md border">
+          <RankingBarChart data={concentracion.topClientes} />
+          <div className="mt-3 overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -134,7 +136,8 @@ export default async function ReportesPage() {
 
         <div>
           <h2 className="mb-2 text-lg font-medium">Top proveedores por volumen</h2>
-          <div className="overflow-x-auto rounded-md border">
+          <RankingBarChart data={concentracion.topProveedores} />
+          <div className="mt-3 overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
