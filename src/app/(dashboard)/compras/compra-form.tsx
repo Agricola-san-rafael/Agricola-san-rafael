@@ -59,6 +59,7 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
   const { limpiarBorrador } = useOfflineDraft("borrador-compra", form);
   const [facturaExtraida, setFacturaExtraida] = useState<FacturaExtraida | null>(null);
   const [facturasDuplicadas, setFacturasDuplicadas] = useState<CompraDuplicada[]>([]);
+  const [registrandoLote, setRegistrandoLote] = useState(false);
 
   function aplicarDatosFactura(factura: FacturaExtraida) {
     if (factura.fecha) setValue("fecha", factura.fecha);
@@ -73,22 +74,108 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
     }
   }
 
-  function aplicarLinea(linea: FacturaExtraida["lineas"][number]) {
+  function resolverVariedadCalibre(
+    linea: FacturaExtraida["lineas"][number]
+  ): { variedadId: string; calibreId: string } | null {
     const variedadEncontrada = variedades.find((v) => normalizar(v.nombre) === normalizar(linea.variedad));
-    if (variedadEncontrada) {
-      setValue("variedadId", variedadEncontrada.id);
-      const calibreEncontrado = calibres.find(
-        (c) =>
-          normalizar(c.codigo) === normalizar(linea.calibre) &&
-          (!c.variedadId || c.variedadId === variedadEncontrada.id)
-      );
-      if (calibreEncontrado) setValue("calibreId", calibreEncontrado.id);
-      else toast.info(`No encontré el calibre "${linea.calibre}" — selecciónalo a mano`);
+    if (!variedadEncontrada) return null;
+    const calibreEncontrado = calibres.find(
+      (c) =>
+        normalizar(c.codigo) === normalizar(linea.calibre) &&
+        (!c.variedadId || c.variedadId === variedadEncontrada.id)
+    );
+    if (!calibreEncontrado) return null;
+    return { variedadId: variedadEncontrada.id, calibreId: calibreEncontrado.id };
+  }
+
+  function aplicarLinea(linea: FacturaExtraida["lineas"][number]) {
+    const resuelto = resolverVariedadCalibre(linea);
+    if (resuelto) {
+      setValue("variedadId", resuelto.variedadId);
+      setValue("calibreId", resuelto.calibreId);
     } else {
-      toast.info(`No encontré la variedad "${linea.variedad}" — selecciónala a mano`);
+      const variedadEncontrada = variedades.find((v) => normalizar(v.nombre) === normalizar(linea.variedad));
+      if (!variedadEncontrada) {
+        toast.info(`No encontré la variedad "${linea.variedad}" — selecciónala a mano`);
+      } else {
+        setValue("variedadId", variedadEncontrada.id);
+        toast.info(`No encontré el calibre "${linea.calibre}" — selecciónalo a mano`);
+      }
     }
     setValue("kilos", linea.kilos);
     setValue("precioKg", linea.precioKg);
+  }
+
+  async function registrarTodasLasLineas() {
+    if (!facturaExtraida) return;
+    const proveedorActual = form.getValues("proveedorId");
+    if (!proveedorActual) {
+      toast.error("Selecciona el proveedor antes de registrar todas las líneas");
+      return;
+    }
+
+    const base = form.getValues();
+    const sinCalibre: string[] = [];
+    const payloads = facturaExtraida.lineas
+      .map((linea, i) => {
+        const resuelto = resolverVariedadCalibre(linea);
+        if (!resuelto) {
+          sinCalibre.push(`${linea.variedad} ${linea.calibre} (${linea.kilos} kg)`);
+          return null;
+        }
+        return {
+          fecha: base.fecha,
+          proveedorId: proveedorActual,
+          variedadId: resuelto.variedadId,
+          calibreId: resuelto.calibreId,
+          kilos: linea.kilos,
+          precioKg: linea.precioKg,
+          formaPago: base.formaPago,
+          estadoPago: base.estadoPago,
+          nFactura: base.nFactura,
+          // El neto/IVA es del total de la factura, no por línea — se deja
+          // solo en la primera para no repetir el mismo monto N veces.
+          neto: i === 0 ? base.neto : undefined,
+          iva: i === 0 ? base.iva : undefined,
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
+
+    if (sinCalibre.length > 0) {
+      toast.error(`No encontré variedad/calibre para: ${sinCalibre.join(", ")} — carga esas a mano`);
+    }
+    if (payloads.length === 0) return;
+
+    setRegistrandoLote(true);
+    try {
+      const res = await fetch("/api/v1/compras/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ compras: payloads }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "No se pudieron registrar las compras");
+        return;
+      }
+      const resultados = (data.resultados ?? []) as { ok: boolean; error?: string }[];
+      const exitosas = resultados.filter((r) => r.ok).length;
+      const fallidas = resultados.filter((r) => !r.ok);
+      if (fallidas.length === 0) {
+        toast.success(`${exitosas} compra(s) registrada(s)`);
+        limpiarBorrador();
+        router.push("/compras");
+        router.refresh();
+      } else {
+        toast.error(
+          `${exitosas} registrada(s), ${fallidas.length} con error: ${fallidas.map((f) => f.error).join(" · ")}`
+        );
+      }
+    } catch {
+      toast.error("No se pudieron registrar las compras — revisa tu conexión");
+    } finally {
+      setRegistrandoLote(false);
+    }
   }
 
   const proveedorId = watch("proveedorId");
@@ -176,8 +263,19 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
             </Button>
           ))}
           <p className="text-xs text-muted-foreground">
-            Cada línea es una compra distinta — carga una, guárdala, y repite con la siguiente.
+            Cada línea es una compra distinta. Puedes cargarlas una por una, o registrarlas todas
+            juntas (necesitas el proveedor seleccionado abajo primero).
           </p>
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            className="w-fit"
+            disabled={registrandoLote}
+            onClick={registrarTodasLasLineas}
+          >
+            {registrandoLote ? "Registrando..." : `Registrar las ${facturaExtraida.lineas.length} líneas`}
+          </Button>
         </div>
       )}
 
