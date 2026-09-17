@@ -64,6 +64,7 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
   } = form;
   const { limpiarBorrador } = useOfflineDraft("borrador-venta", form);
   const [ventaExtraida, setVentaExtraida] = useState<VentaExtraida | null>(null);
+  const [registrandoLote, setRegistrandoLote] = useState(false);
 
   function aplicarDatosVenta(venta: VentaExtraida) {
     if (venta.fecha) setValue("fecha", venta.fecha);
@@ -86,23 +87,95 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
     return n;
   }
 
-  function aplicarLineaVenta(linea: VentaExtraida["lineas"][number]) {
+  function resolverLote(linea: VentaExtraida["lineas"][number]): LoteDisponible | null {
     const candidatos = lotes.filter(
       (l) =>
         normalizar(l.variedad.nombre) === normalizar(linea.variedad) &&
         aliasCalibre(l.calibre.codigo) === aliasCalibre(linea.calibre)
     );
-    if (candidatos.length === 0) {
+    if (candidatos.length === 0) return null;
+    return candidatos.find((l) => Number(l.kilosDisponibles) >= linea.kilos) ?? candidatos[0];
+  }
+
+  function aplicarLineaVenta(linea: VentaExtraida["lineas"][number]) {
+    const lote = resolverLote(linea);
+    if (!lote) {
       toast.info(`No encontré un lote disponible de ${linea.variedad} ${linea.calibre} — selecciónalo a mano`);
       setValue("kilos", linea.kilos);
       setValue("precioKg", linea.precioKg);
       return;
     }
-    const lote =
-      candidatos.find((l) => Number(l.kilosDisponibles) >= linea.kilos) ?? candidatos[0];
     setValue("loteId", lote.id);
     setValue("kilos", linea.kilos);
     setValue("precioKg", linea.precioKg);
+  }
+
+  async function registrarTodasLasLineas() {
+    if (!ventaExtraida) return;
+    const clienteActual = getValues("clienteId");
+    if (!clienteActual) {
+      toast.error("Selecciona el cliente antes de registrar todas las líneas");
+      return;
+    }
+
+    const base = getValues();
+    const sinLote: string[] = [];
+    const payloads = ventaExtraida.lineas
+      .map((linea) => {
+        const lote = resolverLote(linea);
+        if (!lote) {
+          sinLote.push(`${linea.variedad} ${linea.calibre} (${linea.kilos} kg)`);
+          return null;
+        }
+        return {
+          fecha: base.fecha,
+          clienteId: clienteActual,
+          loteId: lote.id,
+          kilos: linea.kilos,
+          precioKg: linea.precioKg,
+          formaPago: base.formaPago,
+          estadoPago: base.estadoPago,
+          tipoDocumento: base.tipoDocumento,
+          nDocumento: base.nDocumento,
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
+
+    if (sinLote.length > 0) {
+      toast.error(`No encontré lote para: ${sinLote.join(", ")} — carga esas a mano`);
+    }
+    if (payloads.length === 0) return;
+
+    setRegistrandoLote(true);
+    try {
+      const res = await fetch("/api/v1/ventas/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ventas: payloads }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "No se pudieron registrar las ventas");
+        return;
+      }
+      const resultados = (data.resultados ?? []) as { ok: boolean; error?: string }[];
+      const exitosas = resultados.filter((r) => r.ok).length;
+      const fallidas = resultados.filter((r) => !r.ok);
+      if (fallidas.length === 0) {
+        toast.success(`${exitosas} venta(s) registrada(s)`);
+        limpiarBorrador();
+        router.push("/ventas");
+        router.refresh();
+      } else {
+        toast.error(
+          `${exitosas} registrada(s), ${fallidas.length} con error: ${fallidas.map((f) => f.error).join(" · ")}`
+        );
+      }
+    } catch {
+      toast.error("No se pudieron registrar las ventas — revisa tu conexión");
+    } finally {
+      setRegistrandoLote(false);
+    }
   }
 
   const clienteId = watch("clienteId");
@@ -182,8 +255,19 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
             </Button>
           ))}
           <p className="text-xs text-muted-foreground">
-            Cada línea es una venta distinta — carga una, guárdala, y repite con la siguiente.
+            Cada línea es una venta distinta. Puedes cargarlas una por una, o registrarlas todas
+            juntas (necesitas el cliente seleccionado abajo primero).
           </p>
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            className="w-fit"
+            disabled={registrandoLote}
+            onClick={registrarTodasLasLineas}
+          >
+            {registrandoLote ? "Registrando..." : `Registrar las ${ventaExtraida.lineas.length} líneas`}
+          </Button>
         </div>
       )}
 
