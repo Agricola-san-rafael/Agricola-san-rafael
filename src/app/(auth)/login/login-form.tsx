@@ -50,8 +50,20 @@ export function LoginForm() {
 
   return (
     <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Agrícola San Rafael</CardTitle>
+      <CardHeader className="items-center text-center">
+        <svg viewBox="0 0 64 64" className="mb-2 size-14" aria-hidden="true">
+          <rect width="64" height="64" rx="14" fill="#0a0a0a" />
+          <path
+            d="M32 8c-9 6-15 16-15 27a15 15 0 0 0 30 0c0-11-6-21-15-27z"
+            fill="#1c2b12"
+          />
+          <path
+            d="M32 12c-7 6-12 15-12 23a12 12 0 0 0 24 0c0-8-5-17-12-23z"
+            fill="#9be15d"
+          />
+          <ellipse cx="32" cy="39" rx="6.5" ry="7" fill="#3c2a14" />
+        </svg>
+        <CardTitle className="text-xl">Agrícola San Rafael</CardTitle>
         <CardDescription>Inicia sesión para continuar</CardDescription>
       </CardHeader>
       <CardContent>
