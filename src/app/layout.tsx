@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -16,6 +16,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Agrícola San Rafael",
   description: "Sistema de gestión de compra, venta y distribución de paltas",
+  appleWebApp: {
+    title: "Agrícola San Rafael",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0e0e0e",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
