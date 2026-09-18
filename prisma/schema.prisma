@@ -123,13 +123,29 @@ model Usuario {
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
-  compras         Compra[]
-  ventas          Venta[]
-  gastos          GastoOperacional[]
-  refreshTokens   RefreshToken[]
-  auditLogs       AuditLog[]
+  compras           Compra[]
+  ventas            Venta[]
+  gastos            GastoOperacional[]
+  refreshTokens     RefreshToken[]
+  auditLogs         AuditLog[]
+  pushSubscriptions PushSubscription[]
 
   @@map("usuarios")
+}
+
+/// Suscripciones a notificaciones push (Web Push API) para avisar alertas
+/// directo al celular del usuario cuando la app está instalada como PWA.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  usuarioId String   @map("usuario_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
 }
 
 /// Rotación/revocación de sesiones (sección 7: JWT + refresh tokens).

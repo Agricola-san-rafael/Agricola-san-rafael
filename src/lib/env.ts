@@ -13,6 +13,9 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   ALERTA_DIAS_ANTICIPACION: z.coerce.number().default(2),
   ALERTA_DIAS_GASTO_PENDIENTE: z.coerce.number().default(5),
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

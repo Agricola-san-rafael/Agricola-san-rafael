@@ -10,6 +10,7 @@ import {
 import { listarAlertas } from "@/modules/alertas/service";
 import { formatDateCL } from "@/modules/shared/dates";
 import { ResolverAlertaButton } from "./resolver-alerta-button";
+import { ActivarNotificacionesButton } from "./activar-notificaciones-button";
 
 const TIPO_LABEL: Record<string, string> = {
   cxc_vencimiento: "Cuenta por cobrar",
@@ -23,7 +24,10 @@ export default async function AlertasPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Alertas</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Alertas</h1>
+        <ActivarNotificacionesButton />
+      </div>
 
       <div className="overflow-x-auto rounded-md border">
         <Table>

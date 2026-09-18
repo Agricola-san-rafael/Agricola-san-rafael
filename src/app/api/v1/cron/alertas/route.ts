@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { generarAlertas } from "@/modules/alertas/generar-alertas";
+import { enviarAlertasPendientes } from "@/modules/alertas/service";
 
 /**
  * Vercel Cron Jobs llaman por GET e incluyen automáticamente
@@ -18,11 +19,17 @@ function autorizado(request: Request): boolean {
   return custom === env.CRON_SECRET;
 }
 
+async function ejecutar() {
+  const generadas = await generarAlertas();
+  const enviadas = await enviarAlertasPendientes();
+  return { ...generadas, ...enviadas };
+}
+
 export async function GET(request: Request) {
   if (!autorizado(request)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  const resultado = await generarAlertas();
+  const resultado = await ejecutar();
   return NextResponse.json(resultado);
 }
 
@@ -30,6 +37,6 @@ export async function POST(request: Request) {
   if (!autorizado(request)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  const resultado = await generarAlertas();
+  const resultado = await ejecutar();
   return NextResponse.json(resultado);
 }
