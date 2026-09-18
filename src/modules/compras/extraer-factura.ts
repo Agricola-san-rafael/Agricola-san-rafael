@@ -12,6 +12,7 @@ const lineaSchema = z.object({
 
 const facturaSchema = z.object({
   proveedorNombre: z.string().nullable(),
+  proveedorRut: z.string().nullable(),
   fecha: z.string().nullable(),
   nFactura: z.string().nullable(),
   neto: z.number().nullable(),
@@ -27,6 +28,7 @@ Analiza el documento adjunto y responde ÚNICAMENTE con un objeto JSON (sin text
 
 {
   "proveedorNombre": string o null (nombre del proveedor/vendedor que emite el documento),
+  "proveedorRut": string o null (RUT chileno del proveedor/vendedor, tal como aparece, ej. "77.192.292-9"),
   "fecha": string "YYYY-MM-DD" o null,
   "nFactura": string o null (número de factura o boleta),
   "neto": number o null (monto neto total, sin IVA),

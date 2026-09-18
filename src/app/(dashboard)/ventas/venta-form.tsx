@@ -31,6 +31,10 @@ function normalizar(texto: string): string {
     .replace(/[̀-ͯ]/g, "");
 }
 
+function normalizarRut(rut: string): string {
+  return rut.trim().toUpperCase().replace(/[.\s]/g, "");
+}
+
 type FormInput = z.input<typeof ventaSchema>;
 type FormOutput = z.output<typeof ventaSchema>;
 type LoteDisponible = Awaited<ReturnType<typeof obtenerLotesDisponibles>>[number];
@@ -72,8 +76,15 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
     if (venta.estadoPago) setValue("estadoPago", venta.estadoPago);
     if (venta.nDocumento) setValue("nDocumento", venta.nDocumento);
 
-    if (venta.clienteNombre) {
-      const encontrado = clientes.find((c) => normalizar(c.nombre) === normalizar(venta.clienteNombre!));
+    if (venta.clienteRut || venta.clienteNombre) {
+      const porRut = venta.clienteRut
+        ? clientes.find((c) => c.rut && normalizarRut(c.rut) === normalizarRut(venta.clienteRut!))
+        : undefined;
+      const encontrado =
+        porRut ??
+        (venta.clienteNombre
+          ? clientes.find((c) => normalizar(c.nombre) === normalizar(venta.clienteNombre!))
+          : undefined);
       if (encontrado) setValue("clienteId", encontrado.id);
       else toast.info(`No encontré al cliente "${venta.clienteNombre}" en la lista — selecciónalo a mano`);
     }

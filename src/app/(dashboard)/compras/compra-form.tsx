@@ -30,6 +30,10 @@ function normalizar(texto: string): string {
     .replace(/[̀-ͯ]/g, "");
 }
 
+function normalizarRut(rut: string): string {
+  return rut.trim().toUpperCase().replace(/[.\s]/g, "");
+}
+
 type FormInput = z.input<typeof compraSchema>;
 type FormOutput = z.output<typeof compraSchema>;
 
@@ -67,8 +71,15 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
     if (factura.neto !== null) setValue("neto", factura.neto);
     if (factura.iva !== null) setValue("iva", factura.iva);
 
-    if (factura.proveedorNombre) {
-      const encontrado = proveedores.find((p) => normalizar(p.nombre) === normalizar(factura.proveedorNombre!));
+    if (factura.proveedorRut || factura.proveedorNombre) {
+      const porRut = factura.proveedorRut
+        ? proveedores.find((p) => p.rut && normalizarRut(p.rut) === normalizarRut(factura.proveedorRut!))
+        : undefined;
+      const encontrado =
+        porRut ??
+        (factura.proveedorNombre
+          ? proveedores.find((p) => normalizar(p.nombre) === normalizar(factura.proveedorNombre!))
+          : undefined);
       if (encontrado) setValue("proveedorId", encontrado.id);
       else toast.info(`No encontré al proveedor "${factura.proveedorNombre}" en la lista — selecciónalo a mano`);
     }

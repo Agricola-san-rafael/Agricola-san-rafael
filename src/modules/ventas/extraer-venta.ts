@@ -12,6 +12,7 @@ const lineaSchema = z.object({
 
 const ventaSchema = z.object({
   clienteNombre: z.string().nullable(),
+  clienteRut: z.string().nullable(),
   fecha: z.string().nullable(),
   formaPago: z.enum(["contado", "credito"]).nullable(),
   estadoPago: z.enum(["pagado", "pendiente", "parcial"]).nullable(),
@@ -27,6 +28,7 @@ Responde ÚNICAMENTE con un objeto JSON (sin texto adicional, sin markdown, sin 
 
 {
   "clienteNombre": string o null (nombre del cliente/comprador),
+  "clienteRut": string o null (RUT chileno del cliente/comprador si aparece, ej. "78.259.595-4"),
   "fecha": string "YYYY-MM-DD" o null (si el texto dice "hoy" y no hay otra pista de fecha, usa null),
   "formaPago": "contado" o "credito" o null,
   "estadoPago": "pagado" o "pendiente" o "parcial" o null,
