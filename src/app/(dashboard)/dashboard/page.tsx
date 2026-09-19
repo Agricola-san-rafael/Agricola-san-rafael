@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import { LinkButton } from "@/components/ui/link-button";
 import { obtenerKPIs } from "@/modules/reportes/service";
 import { formatCLP } from "@/modules/shared/money";
@@ -28,14 +29,16 @@ export default async function DashboardPage() {
             <p className="text-xl font-semibold">{formatCLP(kpis.ventasDelMes.total)}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">Por cobrar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xl font-semibold">{formatCLP(kpis.totalCxC)}</p>
-          </CardContent>
-        </Card>
+        <Link href="/por-cobrar">
+          <Card className="h-full transition-colors hover:bg-muted/40">
+            <CardHeader>
+              <CardTitle className="text-sm text-muted-foreground">Por cobrar</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xl font-semibold">{formatCLP(kpis.totalCxC)}</p>
+            </CardContent>
+          </Card>
+        </Link>
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">Por pagar</CardTitle>

@@ -15,6 +15,7 @@ function navLinks(alertasPendientes: number, esAdmin: boolean) {
     { href: "/ventas", label: "Ventas", iconKey: "ventas" as IconoNav },
     { href: "/inventario", label: "Inventario", iconKey: "inventario" as IconoNav },
     { href: "/clientes", label: "Clientes", iconKey: "clientes" as IconoNav },
+    { href: "/por-cobrar", label: "Por cobrar", iconKey: "porCobrar" as IconoNav },
     { href: "/proveedores", label: "Proveedores", iconKey: "proveedores" as IconoNav },
     { href: "/gastos", label: "Gastos", iconKey: "gastos" as IconoNav },
     { href: "/flujo-caja", label: "Flujo de caja", iconKey: "flujoCaja" as IconoNav },
