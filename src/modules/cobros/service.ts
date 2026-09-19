@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { NotFoundError } from "@/modules/shared/errors";
 import { registrarAuditLog } from "@/modules/shared/audit";
+import { recalcularEstadoPagoVentas } from "./estado-pago";
 import type { CobroInput } from "./schema";
 
 export async function crearCobro(clienteId: string, input: CobroInput, creadoPor: string) {
@@ -29,6 +30,8 @@ export async function crearCobro(clienteId: string, input: CobroInput, creadoPor
       campoDespues: { monto: Number(cobro.monto), medioPago: cobro.medioPago },
       usuarioId: creadoPor,
     });
+
+    await recalcularEstadoPagoVentas(tx, clienteId);
 
     return cobro;
   });
