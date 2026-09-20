@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { diferenciaDiasUTC } from "@/modules/shared/dates";
 import { repartirCobros } from "./estado-pago";
+import { armarMensajeCobro, urlWhatsApp, type LineaDeuda } from "./mensaje-cobro";
 
 export interface DeudaCliente {
   clienteId: string;
@@ -12,6 +13,8 @@ export interface DeudaCliente {
   de31a60: number;
   mas60: number;
   diasDeudaMasAntigua: number;
+  mensaje: string;
+  urlWhatsApp: string | null;
 }
 
 export interface ResumenPorCobrar {
@@ -35,6 +38,9 @@ export async function obtenerPorCobrar(hoy: Date = new Date()): Promise<ResumenP
         clienteId: true,
         fecha: true,
         total: true,
+        kilos: true,
+        variedad: { select: { nombre: true } },
+        calibre: { select: { codigo: true } },
         cliente: { select: { nombre: true, telefono: true } },
       },
     }),
@@ -63,7 +69,10 @@ export async function obtenerPorCobrar(hoy: Date = new Date()): Promise<ResumenP
       de31a60: 0,
       mas60: 0,
       diasDeudaMasAntigua: 0,
+      mensaje: "",
+      urlWhatsApp: null,
     };
+    const lineas: LineaDeuda[] = [];
 
     for (const { venta, pendiente } of repartirCobros(lista, cobrado)) {
       if (!pendiente.gt(0)) continue;
@@ -74,8 +83,18 @@ export async function obtenerPorCobrar(hoy: Date = new Date()): Promise<ResumenP
       else if (dias <= 60) deuda.de31a60 += monto;
       else deuda.mas60 += monto;
       deuda.diasDeudaMasAntigua = Math.max(deuda.diasDeudaMasAntigua, dias);
+      lineas.push({
+        fecha: venta.fecha,
+        detalle: `${venta.kilos.toNumber()} kg ${venta.variedad.nombre} ${venta.calibre.codigo}`,
+        pendiente: monto,
+        total: venta.total.toNumber(),
+      });
     }
-    if (deuda.saldo > 0) clientes.push(deuda);
+    if (deuda.saldo > 0) {
+      deuda.mensaje = armarMensajeCobro(deuda.nombre, lineas, deuda.saldo);
+      deuda.urlWhatsApp = urlWhatsApp(deuda.telefono, deuda.mensaje);
+      clientes.push(deuda);
+    }
   }
 
   clientes.sort((a, b) => b.saldo - a.saldo);

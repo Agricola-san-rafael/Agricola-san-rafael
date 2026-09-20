@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { obtenerPorCobrar } from "@/modules/cobros/por-cobrar";
 import { formatCLP } from "@/modules/shared/money";
+import { BotonesCobro } from "./botones-cobro";
 
 export default async function PorCobrarPage() {
   const resumen = await obtenerPorCobrar();
@@ -69,6 +70,7 @@ export default async function PorCobrarPage() {
               <TableHead className="text-right">31-60 días</TableHead>
               <TableHead className="text-right">Más de 60</TableHead>
               <TableHead className="text-right">Deuda más antigua</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -87,11 +89,14 @@ export default async function PorCobrarPage() {
                 <TableCell className="text-right">{monto(c.de31a60)}</TableCell>
                 <TableCell className="text-right text-destructive">{monto(c.mas60)}</TableCell>
                 <TableCell className="text-right">{c.diasDeudaMasAntigua} días</TableCell>
+                <TableCell>
+                  <BotonesCobro mensaje={c.mensaje} urlWhatsApp={c.urlWhatsApp} />
+                </TableCell>
               </TableRow>
             ))}
             {resumen.clientes.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No hay deudas pendientes.
                 </TableCell>
               </TableRow>
