@@ -39,14 +39,16 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </Link>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">Por pagar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xl font-semibold">{formatCLP(kpis.totalCxP)}</p>
-          </CardContent>
-        </Card>
+        <Link href="/por-pagar">
+          <Card className="h-full transition-colors hover:bg-muted/40">
+            <CardHeader>
+              <CardTitle className="text-sm text-muted-foreground">Por pagar</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xl font-semibold">{formatCLP(kpis.totalCxP)}</p>
+            </CardContent>
+          </Card>
+        </Link>
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">Stock valorizado</CardTitle>

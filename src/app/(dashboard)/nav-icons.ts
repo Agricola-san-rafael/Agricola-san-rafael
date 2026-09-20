@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   UserCog,
   HandCoins,
+  CreditCard,
 } from "lucide-react";
 
 export type IconoNav =
@@ -23,6 +24,7 @@ export type IconoNav =
   | "inventario"
   | "clientes"
   | "porCobrar"
+  | "porPagar"
   | "proveedores"
   | "gastos"
   | "flujoCaja"
@@ -40,6 +42,7 @@ export const ICONOS_NAV: Record<IconoNav, typeof LayoutDashboard> = {
   inventario: Package,
   clientes: Users,
   porCobrar: HandCoins,
+  porPagar: CreditCard,
   proveedores: Truck,
   gastos: Receipt,
   flujoCaja: Wallet,

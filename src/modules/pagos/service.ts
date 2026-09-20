@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { NotFoundError } from "@/modules/shared/errors";
 import { registrarAuditLog } from "@/modules/shared/audit";
+import { recalcularEstadoPagoCompras } from "./estado-pago";
 import type { PagoInput } from "./schema";
 
 export async function crearPago(proveedorId: string, input: PagoInput, creadoPor: string) {
@@ -29,6 +30,8 @@ export async function crearPago(proveedorId: string, input: PagoInput, creadoPor
       campoDespues: { monto: Number(pago.monto), medioPago: pago.medioPago },
       usuarioId: creadoPor,
     });
+
+    await recalcularEstadoPagoCompras(tx, proveedorId);
 
     return pago;
   });
