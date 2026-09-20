@@ -43,12 +43,14 @@ export function ProveedorForm({ proveedor }: ProveedorFormProps) {
           plazoPagoDias: proveedor.plazoPagoDias ?? undefined,
           notas: proveedor.notas ?? undefined,
           activo: proveedor.activo,
+          facturaConIva: proveedor.facturaConIva,
         }
       : { activo: true },
   });
 
   const condicionesPago = watch("condicionesPago");
   const activo = watch("activo") ?? true;
+  const facturaConIva = watch("facturaConIva") ?? false;
 
   async function onSubmit(values: FormOutput) {
     const url = proveedor ? `/api/v1/proveedores/${proveedor.id}` : "/api/v1/proveedores";
@@ -120,6 +122,20 @@ export function ProveedorForm({ proveedor }: ProveedorFormProps) {
       <div className="flex flex-col gap-2">
         <Label htmlFor="notas">Notas</Label>
         <Textarea id="notas" {...register("notas")} />
+      </div>
+
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="facturaConIva"
+          checked={facturaConIva}
+          onCheckedChange={(checked) => setValue("facturaConIva", checked === true)}
+        />
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="facturaConIva">Factura con IVA</Label>
+          <p className="text-xs text-muted-foreground">
+            Al comprarle, el costo de los lotes se guarda con el 19% de IVA sumado.
+          </p>
+        </div>
       </div>
 
       {proveedor && (

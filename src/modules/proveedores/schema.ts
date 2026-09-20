@@ -13,6 +13,7 @@ export const proveedorSchema = z.object({
   ),
   notas: z.string().optional(),
   activo: z.boolean().optional(),
+  facturaConIva: z.boolean().optional(),
 });
 
 export const proveedorUpdateSchema = proveedorSchema.partial();
