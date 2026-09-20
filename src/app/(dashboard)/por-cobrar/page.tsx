@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { obtenerPorCobrar } from "@/modules/cobros/por-cobrar";
 import { formatCLP } from "@/modules/shared/money";
+import { LinkButton } from "@/components/ui/link-button";
 import { BotonesCobro } from "./botones-cobro";
 
 export default async function PorCobrarPage() {
@@ -18,11 +19,14 @@ export default async function PorCobrarPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Por cobrar</h1>
-        <p className="text-muted-foreground">
-          Quién te debe y hace cuántos días. Los días se cuentan desde la fecha de la venta.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold">Por cobrar</h1>
+          <p className="text-muted-foreground">
+            Quién te debe y hace cuántos días. Los días se cuentan desde la fecha de la venta.
+          </p>
+        </div>
+        <LinkButton href="/por-cobrar/registrar">Registrar pagos desde comprobante</LinkButton>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
