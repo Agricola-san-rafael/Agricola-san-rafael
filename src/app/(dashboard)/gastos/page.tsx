@@ -20,9 +20,14 @@ export default async function GastosPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Gastos operacionales</h1>
-        <LinkButton href="/gastos/nuevo">Nuevo gasto</LinkButton>
+        <div className="flex flex-wrap gap-2">
+          <LinkButton href="/gastos/desde-foto" variant="outline">
+            Registrar desde foto
+          </LinkButton>
+          <LinkButton href="/gastos/nuevo">Nuevo gasto</LinkButton>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-md border">

@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { diferenciaDiasUTC, medianocheUTC, sumarDiasUTC } from "@/modules/shared/dates";
+import { obtenerPorCobrar } from "@/modules/cobros/por-cobrar";
+import { formatCLP } from "@/modules/shared/money";
+import { debeAvisarAtraso } from "./atrasos";
 import type { Prisma } from "@/generated/prisma/client";
 
 /**
@@ -87,6 +90,20 @@ export async function generarAlertas(fechaReferencia: Date = new Date()) {
         fechaDisparo: hoy,
         canal: "push",
         mensaje: `Gasto "${gasto.descripcion ?? gasto.categoria}" lleva ${dias} días pendiente`,
+      });
+    }
+  }
+
+  const { clientes: deudores } = await obtenerPorCobrar(hoy);
+  for (const deudor of deudores) {
+    if (debeAvisarAtraso(deudor.diasDeudaMasAntigua, env.ALERTA_DIAS_ATRASO_CLIENTE)) {
+      alertas.push({
+        tipo: "cxc_vencimiento",
+        entidadTipo: "cliente",
+        entidadId: deudor.clienteId,
+        fechaDisparo: hoy,
+        canal: "push",
+        mensaje: `${deudor.nombre} lleva ${deudor.diasDeudaMasAntigua} días sin pagar (debe ${formatCLP(deudor.saldo)}). Arma el mensaje de cobro en Por cobrar.`,
       });
     }
   }

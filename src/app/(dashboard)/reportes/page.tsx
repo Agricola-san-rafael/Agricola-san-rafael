@@ -17,6 +17,7 @@ import {
 import { formatCLP } from "@/modules/shared/money";
 import { formatDateCL } from "@/modules/shared/dates";
 import { RankingBarChart } from "@/components/charts/ranking-bar-chart";
+import { LinkButton } from "@/components/ui/link-button";
 
 export default async function ReportesPage() {
   const [kpis, concentracion, vencidas, descalce] = await Promise.all([
@@ -28,7 +29,17 @@ export default async function ReportesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Reportes</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Reportes</h1>
+        <div className="flex flex-wrap gap-2">
+          <LinkButton href="/reportes/utilidad" variant="outline">
+            Utilidad por cliente y calibre
+          </LinkButton>
+          <LinkButton href="/reportes/cierre" variant="outline">
+            Cierre mensual
+          </LinkButton>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Card>
