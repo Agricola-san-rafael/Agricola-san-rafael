@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import { obtenerPorCobrar } from "@/modules/cobros/por-cobrar";
 import { obtenerPorPagar } from "@/modules/pagos/por-pagar";
+import { resumirFletes, type ResumenFletes } from "@/modules/fletes/service";
 
 const TASA_IVA_INCLUIDO = 19 / 119;
 
@@ -14,7 +15,9 @@ export interface CierreMensual {
   gastos: { total: number; porCategoria: Record<string, number> };
   cobrosDelMes: number;
   pagosDelMes: number;
+  fletes: ResumenFletes;
   utilidadNeta: number;
+  utilidadNetaConsolidada: number;
   ajustesDeSaldo: { cantidad: number; total: number };
   alDiaDeHoy: { porCobrar: number; porPagar: number; stockValorizado: number };
 }
@@ -33,7 +36,7 @@ const n = (x: unknown) => Number(x ?? 0);
 async function cargarDatos(mes: string) {
   const { desde, hasta } = rangoDelMes(mes);
   const fecha = { gte: desde, lte: hasta };
-  const [ventas, compras, gastos, cobros, pagos] = await Promise.all([
+  const [ventas, compras, gastos, cobros, pagos, fletes] = await Promise.all([
     prisma.venta.findMany({
       where: { fecha },
       orderBy: { fecha: "asc" },
@@ -47,16 +50,23 @@ async function cargarDatos(mes: string) {
     prisma.gastoOperacional.findMany({ where: { fecha }, orderBy: { fecha: "asc" } }),
     prisma.movimientoCobro.findMany({ where: { fecha }, orderBy: { fecha: "asc" }, include: { cliente: { select: { nombre: true } } } }),
     prisma.movimientoPago.findMany({ where: { fecha }, orderBy: { fecha: "asc" }, include: { proveedor: { select: { nombre: true } } } }),
+    prisma.flete.findMany({
+      where: { fecha },
+      orderBy: { fecha: "asc" },
+      include: { compra: { select: { proveedor: { select: { nombre: true } } } }, venta: { select: { cliente: { select: { nombre: true } } } } },
+    }),
   ]);
-  return { ventas, compras, gastos, cobros, pagos };
+  return { ventas, compras, gastos, cobros, pagos, fletes };
 }
 
 export async function obtenerCierreMensual(mes: string): Promise<CierreMensual> {
   const { ventas, compras, gastos, cobros, pagos } = await cargarDatos(mes);
-  const [porCobrar, porPagar, lotes] = await Promise.all([
+  const { desde, hasta } = rangoDelMes(mes);
+  const [porCobrar, porPagar, lotes, fletes] = await Promise.all([
     obtenerPorCobrar(),
     obtenerPorPagar(),
     prisma.loteInventario.findMany({ where: { kilosDisponibles: { gt: 0 } }, select: { kilosDisponibles: true, costoKg: true } }),
+    resumirFletes(desde, hasta),
   ]);
 
   const reales = ventas.filter((v) => !v.esAjuste);
@@ -92,7 +102,9 @@ export async function obtenerCierreMensual(mes: string): Promise<CierreMensual> 
     gastos: { total: gastosTotal, porCategoria },
     cobrosDelMes: cobros.reduce((a, c) => a + n(c.monto), 0),
     pagosDelMes: pagos.reduce((a, p) => a + n(p.monto), 0),
-    utilidadNeta: utilidadBruta - gastosTotal,
+    fletes,
+    utilidadNeta: utilidadBruta - gastosTotal - fletes.imputadoAgricola,
+    utilidadNetaConsolidada: utilidadBruta - gastosTotal - fletes.costoReal + fletes.ingresoTerceros,
     ajustesDeSaldo: { cantidad: ajustes.length, total: ajustes.reduce((a, v) => a + n(v.total), 0) },
     alDiaDeHoy: {
       porCobrar: porCobrar.total,
@@ -151,7 +163,17 @@ export async function generarExcelCierre(mes: string): Promise<Buffer> {
     ...Object.entries(cierre.gastos.porCategoria).map(([c, m]) => [`  ${c}`, m] as [string, number]),
     ["Total gastos", cierre.gastos.total],
     ["", null],
-    ["UTILIDAD NETA (utilidad bruta - gastos)", cierre.utilidadNeta],
+    ["", null],
+    ["FLETES (empresa de transporte)", null],
+    ["Viajes del mes", cierre.fletes.viajes],
+    ["Costo real de los viajes", cierre.fletes.costoReal],
+    ["Cobrado por tarifas", cierre.fletes.cobrado],
+    ["Resultado del transporte (cobrado - costo real)", cierre.fletes.resultadoTransporte],
+    ["Fletes imputados a la agrícola", cierre.fletes.imputadoAgricola],
+    ["Ingresos por fletes a terceros", cierre.fletes.ingresoTerceros],
+    ["", null],
+    ["UTILIDAD NETA agrícola (utilidad bruta - gastos - fletes imputados)", cierre.utilidadNeta],
+    ["UTILIDAD NETA consolidada (agrícola + transporte)", cierre.utilidadNetaConsolidada],
     ["", null],
     ["MOVIMIENTOS DE DINERO DEL MES", null],
     ["Cobrado a clientes", cierre.cobrosDelMes],
@@ -211,6 +233,17 @@ export async function generarExcelCierre(mes: string): Promise<Buffer> {
   ], datos.gastos.map((g) => ({
     fecha: dia(g.fecha), categoria: g.categoria, descripcion: g.descripcion ?? "", pagadoA: g.pagadoA ?? "",
     monto: n(g.monto), forma: g.formaPago, estado: g.estadoPago,
+  })));
+
+  agregarHoja(libro, "Fletes", [
+    { header: "Fecha", key: "fecha", width: 12 }, { header: "Tipo", key: "tipo", width: 10 },
+    { header: "Operación / tercero", key: "operacion", width: 34 }, { header: "Origen", key: "origen", width: 20 },
+    { header: "Destino", key: "destino", width: 20 }, { header: "Kilos", key: "kilos", width: 10 },
+    { header: "Costo real", key: "costo", width: 14, clp: true }, { header: "Tarifa cobrada", key: "tarifa", width: 14, clp: true },
+  ], datos.fletes.map((f) => ({
+    fecha: dia(f.fecha), tipo: f.tipo,
+    operacion: f.tipo === "tercero" ? f.terceroNombre ?? "" : f.compra?.proveedor.nombre ?? f.venta?.cliente.nombre ?? "sin ligar",
+    origen: f.origen ?? "", destino: f.destino ?? "", kilos: f.kilos ? n(f.kilos) : null, costo: n(f.costoTotal), tarifa: f.tarifaCobrada ? n(f.tarifaCobrada) : null,
   })));
 
   agregarHoja(libro, "Cobros", [

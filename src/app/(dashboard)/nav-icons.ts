@@ -15,6 +15,7 @@ import {
   UserCog,
   HandCoins,
   CreditCard,
+  Route,
 } from "lucide-react";
 
 export type IconoNav =
@@ -25,6 +26,7 @@ export type IconoNav =
   | "clientes"
   | "porCobrar"
   | "porPagar"
+  | "fletes"
   | "proveedores"
   | "gastos"
   | "flujoCaja"
@@ -43,6 +45,7 @@ export const ICONOS_NAV: Record<IconoNav, typeof LayoutDashboard> = {
   clientes: Users,
   porCobrar: HandCoins,
   porPagar: CreditCard,
+  fletes: Route,
   proveedores: Truck,
   gastos: Receipt,
   flujoCaja: Wallet,

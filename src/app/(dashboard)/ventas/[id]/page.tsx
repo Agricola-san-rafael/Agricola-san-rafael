@@ -15,6 +15,7 @@ import { formatDateCL } from "@/modules/shared/dates";
 import { NotFoundError } from "@/modules/shared/errors";
 import { getSession } from "@/lib/auth";
 import { AccionesVenta } from "./acciones-venta";
+import { obtenerFletePorVenta } from "@/modules/fletes/service";
 
 export default async function VentaDetallePage({ params }: PageProps<"/ventas/[id]">) {
   const { id } = await params;
@@ -22,6 +23,7 @@ export default async function VentaDetallePage({ params }: PageProps<"/ventas/[i
 
   try {
     const venta = await obtenerVenta(id);
+    const flete = (await obtenerFletePorVenta()).get(id) ?? 0;
 
     return (
       <div className="flex flex-col gap-6">
@@ -74,6 +76,11 @@ export default async function VentaDetallePage({ params }: PageProps<"/ventas/[i
               <p className="text-sm text-muted-foreground">
                 {(Number(venta.margenPct) * 100).toFixed(1)}%
               </p>
+              {flete > 0 && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Flete {formatCLP(flete)} · utilidad real {formatCLP(Number(venta.margen) - flete)}
+                </p>
+              )}
             </CardContent>
           </Card>
           <Card>

@@ -27,6 +27,7 @@ function TablaUtilidad({ titulo, filas }: { titulo: string; filas: FilaUtilidad[
               <TableHead className="text-right">Kilos</TableHead>
               <TableHead className="text-right">Ventas</TableHead>
               <TableHead className="text-right">Costo</TableHead>
+              <TableHead className="text-right">Flete</TableHead>
               <TableHead className="text-right">Utilidad</TableHead>
               <TableHead className="text-right">%</TableHead>
             </TableRow>
@@ -38,6 +39,7 @@ function TablaUtilidad({ titulo, filas }: { titulo: string; filas: FilaUtilidad[
                 <TableCell className="text-right">{Math.round(f.kilos)}</TableCell>
                 <TableCell className="text-right">{formatCLP(f.ventas)}</TableCell>
                 <TableCell className="text-right">{formatCLP(f.costo)}</TableCell>
+                <TableCell className="text-right">{f.flete > 0 ? formatCLP(f.flete) : "—"}</TableCell>
                 <TableCell className={`text-right font-medium ${f.margen < 0 ? "text-destructive" : ""}`}>
                   {formatCLP(f.margen)}
                 </TableCell>
@@ -46,7 +48,7 @@ function TablaUtilidad({ titulo, filas }: { titulo: string; filas: FilaUtilidad[
             ))}
             {filas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Sin ventas en este período.
                 </TableCell>
               </TableRow>
@@ -71,8 +73,8 @@ export default async function UtilidadPage({ searchParams }: { searchParams: Pro
       <div>
         <h1 className="text-2xl font-semibold">Utilidad por cliente y calibre</h1>
         <p className="text-muted-foreground">
-          Venta menos el costo del lote (con IVA en los proveedores que facturan con IVA). No incluye
-          los ajustes de saldo ni los gastos operacionales.
+          Venta menos el costo del lote (con IVA en los proveedores que facturan con IVA) y menos el
+          flete de cada operación. No incluye los ajustes de saldo ni los gastos operacionales.
         </p>
       </div>
 
@@ -88,10 +90,11 @@ export default async function UtilidadPage({ searchParams }: { searchParams: Pro
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         {[
           ["Ventas", formatCLP(resumen.total.ventas)],
           ["Costo", formatCLP(resumen.total.costo)],
+          ["Flete", formatCLP(resumen.total.flete)],
           ["Utilidad", formatCLP(resumen.total.margen)],
           ["Margen", pct(resumen.total.margenPct)],
         ].map(([t, v]) => (

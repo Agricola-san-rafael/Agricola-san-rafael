@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { obtenerFletePorVenta } from "@/modules/fletes/service";
 
 export interface FilaUtilidad {
   clave: string;
@@ -6,6 +7,7 @@ export interface FilaUtilidad {
   kilos: number;
   ventas: number;
   costo: number;
+  flete: number;
   margen: number;
   margenPct: number;
 }
@@ -13,7 +15,7 @@ export interface FilaUtilidad {
 export interface ResumenUtilidad {
   porCliente: FilaUtilidad[];
   porCalibre: FilaUtilidad[];
-  total: { kilos: number; ventas: number; costo: number; margen: number; margenPct: number };
+  total: { kilos: number; ventas: number; costo: number; flete: number; margen: number; margenPct: number };
 }
 
 export type Periodo = "mes" | "anterior" | "todo";
@@ -28,12 +30,13 @@ export function rangoDePeriodo(periodo: Periodo, hoy: Date = new Date()): { desd
   return {};
 }
 
-function acumular(mapa: Map<string, FilaUtilidad>, clave: string, nombre: string, v: { kilos: number; total: number; costo: number }) {
-  const fila = mapa.get(clave) ?? { clave, nombre, kilos: 0, ventas: 0, costo: 0, margen: 0, margenPct: 0 };
+function acumular(mapa: Map<string, FilaUtilidad>, clave: string, nombre: string, v: { kilos: number; total: number; costo: number; flete: number }) {
+  const fila = mapa.get(clave) ?? { clave, nombre, kilos: 0, ventas: 0, costo: 0, flete: 0, margen: 0, margenPct: 0 };
   fila.kilos += v.kilos;
   fila.ventas += v.total;
   fila.costo += v.costo;
-  fila.margen += v.total - v.costo;
+  fila.flete += v.flete;
+  fila.margen += v.total - v.costo - v.flete;
   mapa.set(clave, fila);
 }
 
@@ -46,9 +49,11 @@ function cerrar(mapa: Map<string, FilaUtilidad>): FilaUtilidad[] {
 /** Utilidad real (venta menos costo del lote) por cliente y por calibre. No incluye los ajustes de saldo. */
 export async function obtenerUtilidad(periodo: Periodo): Promise<ResumenUtilidad> {
   const { desde, hasta } = rangoDePeriodo(periodo);
-  const ventas = await prisma.venta.findMany({
+  const [ventas, fletePorVenta] = await Promise.all([
+    prisma.venta.findMany({
     where: { esAjuste: false, kilos: { gt: 0 }, fecha: { gte: desde, lte: hasta } },
     select: {
+      id: true,
       kilos: true,
       total: true,
       costoTotal: true,
@@ -57,22 +62,24 @@ export async function obtenerUtilidad(periodo: Periodo): Promise<ResumenUtilidad
       variedad: { select: { nombre: true } },
       calibre: { select: { codigo: true } },
     },
-  });
+  }),
+    obtenerFletePorVenta(),
+  ]);
 
   const porCliente = new Map<string, FilaUtilidad>();
   const porCalibre = new Map<string, FilaUtilidad>();
-  let kilos = 0, totalVentas = 0, costo = 0;
+  let kilos = 0, totalVentas = 0, costo = 0, flete = 0;
   for (const v of ventas) {
-    const d = { kilos: Number(v.kilos), total: Number(v.total), costo: Number(v.costoTotal) };
+    const d = { kilos: Number(v.kilos), total: Number(v.total), costo: Number(v.costoTotal), flete: fletePorVenta.get(v.id) ?? 0 };
     acumular(porCliente, v.clienteId, v.cliente.nombre, d);
     const producto = `${v.variedad.nombre} ${v.calibre.codigo}`;
     acumular(porCalibre, producto, producto, d);
-    kilos += d.kilos; totalVentas += d.total; costo += d.costo;
+    kilos += d.kilos; totalVentas += d.total; costo += d.costo; flete += d.flete;
   }
-  const margen = totalVentas - costo;
+  const margen = totalVentas - costo - flete;
   return {
     porCliente: cerrar(porCliente),
     porCalibre: cerrar(porCalibre),
-    total: { kilos, ventas: totalVentas, costo, margen, margenPct: totalVentas > 0 ? margen / totalVentas : 0 },
+    total: { kilos, ventas: totalVentas, costo, flete, margen, margenPct: totalVentas > 0 ? margen / totalVentas : 0 },
   };
 }

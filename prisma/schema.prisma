@@ -61,6 +61,12 @@ enum TipoDocumento {
   sin_documento
 }
 
+enum TipoFlete {
+  compra
+  venta
+  tercero
+}
+
 enum EstadoLote {
   disponible
   agotado
@@ -261,7 +267,8 @@ model Compra {
   createdBy     Usuario?      @relation(fields: [createdById], references: [id])
 
   lote  LoteInventario?
-  pagos MovimientoPago[]
+  pagos  MovimientoPago[]
+  fletes Flete[]
 
   @@index([fecha])
   @@index([proveedorId])
@@ -322,6 +329,7 @@ model Venta {
 
   ventaLotes VentaLote[]
   cobros     MovimientoCobro[]
+  fletes     Flete[]
 
   @@index([fecha])
   @@index([clienteId])
@@ -392,6 +400,39 @@ model GastoOperacional {
 
   @@index([fecha])
   @@map("gastos_operacionales")
+}
+
+/// Viaje de la empresa de transporte. Se liga a una compra (fruta que llega), a
+/// una venta (fruta que se entrega) o a un tercero (servicio a otra empresa).
+/// costoTotal es el costo real del viaje; tarifaCobrada, lo que el transporte
+/// le cobra a la agrícola o al tercero (vacío = solo costo interno).
+model Flete {
+  id               String    @id @default(uuid())
+  fecha            DateTime  @db.Date
+  tipo             TipoFlete
+  compraId         String?   @map("compra_id")
+  compra           Compra?   @relation(fields: [compraId], references: [id], onDelete: SetNull)
+  ventaId          String?   @map("venta_id")
+  venta            Venta?    @relation(fields: [ventaId], references: [id], onDelete: SetNull)
+  terceroNombre    String?   @map("tercero_nombre")
+  origen           String?
+  destino          String?
+  kilos            Decimal?  @db.Decimal(10, 2)
+  vehiculo         String?
+  costoCombustible Decimal   @default(0) @map("costo_combustible") @db.Decimal(12, 2)
+  costoChofer      Decimal   @default(0) @map("costo_chofer") @db.Decimal(12, 2)
+  costoPeajes      Decimal   @default(0) @map("costo_peajes") @db.Decimal(12, 2)
+  costoOtros       Decimal   @default(0) @map("costo_otros") @db.Decimal(12, 2)
+  costoTotal       Decimal   @map("costo_total") @db.Decimal(12, 2)
+  tarifaCobrada    Decimal?  @map("tarifa_cobrada") @db.Decimal(12, 2)
+  observaciones    String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  createdById      String?   @map("created_by")
+
+  @@index([fecha])
+  @@index([compraId])
+  @@index([ventaId])
+  @@map("fletes")
 }
 
 model Prospecto {

@@ -18,6 +18,7 @@ function navLinks(alertasPendientes: number, esAdmin: boolean) {
     { href: "/por-cobrar", label: "Por cobrar", iconKey: "porCobrar" as IconoNav },
     { href: "/por-pagar", label: "Por pagar", iconKey: "porPagar" as IconoNav },
     { href: "/proveedores", label: "Proveedores", iconKey: "proveedores" as IconoNav },
+    { href: "/fletes", label: "Fletes", iconKey: "fletes" as IconoNav },
     { href: "/gastos", label: "Gastos", iconKey: "gastos" as IconoNav },
     { href: "/flujo-caja", label: "Flujo de caja", iconKey: "flujoCaja" as IconoNav },
     {
