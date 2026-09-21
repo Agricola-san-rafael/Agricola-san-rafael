@@ -99,28 +99,32 @@ export async function obtenerFletePorVenta(): Promise<Map<string, number>> {
 export interface ResumenFletes {
   viajes: number;
   costoReal: number;
-  cobrado: number;
+  ingresos: number;
   resultadoTransporte: number;
   imputadoAgricola: number;
   ingresoTerceros: number;
   sinLigar: number;
 }
 
-/** Resumen del transporte en un rango de fechas: qué costó, qué se cobró y cuánto se imputó a la agrícola. */
+/**
+ * Resumen del transporte en un rango de fechas. Los ingresos son la tarifa de cada viaje; si no
+ * tiene tarifa, el transporte le "cobra" a la agrícola su costo real, así el resultado del
+ * transporte solo refleja lo que gana o pierde por encima del costo.
+ */
 export async function resumirFletes(desde?: Date, hasta?: Date): Promise<ResumenFletes> {
   const fletes = await prisma.flete.findMany({ where: { fecha: { gte: desde, lte: hasta } } });
-  const r: ResumenFletes = { viajes: fletes.length, costoReal: 0, cobrado: 0, resultadoTransporte: 0, imputadoAgricola: 0, ingresoTerceros: 0, sinLigar: 0 };
+  const r: ResumenFletes = { viajes: fletes.length, costoReal: 0, ingresos: 0, resultadoTransporte: 0, imputadoAgricola: 0, ingresoTerceros: 0, sinLigar: 0 };
   for (const f of fletes) {
     const costo = Number(f.costoTotal);
     const tarifa = f.tarifaCobrada === null ? null : Number(f.tarifaCobrada);
     r.costoReal += costo;
-    r.cobrado += tarifa ?? 0;
+    r.ingresos += tarifa ?? costo;
     if (f.tipo === "tercero") r.ingresoTerceros += tarifa ?? 0;
     else {
       r.imputadoAgricola += costoParaAgricola({ costoTotal: costo, tarifaCobrada: tarifa });
       if (!f.compraId && !f.ventaId) r.sinLigar++;
     }
   }
-  r.resultadoTransporte = r.cobrado - r.costoReal;
+  r.resultadoTransporte = r.ingresos - r.costoReal;
   return r;
 }

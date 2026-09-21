@@ -32,7 +32,7 @@ export default async function FletesPage() {
   const tarjetas: [string, string][] = [
     ["Viajes del mes", String(mes.viajes)],
     ["Costo real del mes", formatCLP(mes.costoReal)],
-    ["Cobrado del mes", formatCLP(mes.cobrado)],
+    ["Ingresos del mes", formatCLP(mes.ingresos)],
     ["Resultado del transporte (mes)", formatCLP(mes.resultadoTransporte)],
   ];
 

@@ -32,6 +32,9 @@ export default async function ReportesPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Reportes</h1>
         <div className="flex flex-wrap gap-2">
+          <LinkButton href="/reportes/empresas" variant="outline">
+            Utilidad por empresa
+          </LinkButton>
           <LinkButton href="/reportes/utilidad" variant="outline">
             Utilidad por cliente y calibre
           </LinkButton>
