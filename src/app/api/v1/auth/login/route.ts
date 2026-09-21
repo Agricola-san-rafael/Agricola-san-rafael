@@ -9,7 +9,8 @@ import { handleApiError } from "@/modules/shared/http";
 export async function POST(request: Request) {
   try {
     const body = loginSchema.parse(await request.json());
-    const { accessToken, refreshToken, usuario } = await login(body.email, body.password);
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+    const { accessToken, refreshToken, usuario } = await login(body.email, body.password, ip);
     await setAuthCookies(accessToken, refreshToken);
     return NextResponse.json({ accessToken, refreshToken, usuario });
   } catch (error) {

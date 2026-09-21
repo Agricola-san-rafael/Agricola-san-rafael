@@ -34,6 +34,7 @@ function navLinks(alertasPendientes: number, esAdmin: boolean) {
       ? [
           { href: "/configuracion/auditoria", label: "Auditoría", iconKey: "auditoria" as IconoNav },
           { href: "/configuracion/usuarios", label: "Usuarios", iconKey: "usuarios" as IconoNav },
+          { href: "/configuracion/respaldo", label: "Respaldo", iconKey: "respaldo" as IconoNav },
         ]
       : []),
   ];

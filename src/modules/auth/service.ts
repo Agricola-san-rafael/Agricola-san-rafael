@@ -4,7 +4,8 @@ import { verifyPassword } from "@/lib/auth";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "@/lib/jwt";
 import { env } from "@/lib/env";
 import { parseDurationToSeconds } from "@/lib/duration";
-import { UnauthorizedError } from "@/modules/shared/errors";
+import { TooManyRequestsError, UnauthorizedError } from "@/modules/shared/errors";
+import { VENTANA_MINUTOS, debeBloquearLogin } from "./bloqueo";
 import type { Usuario } from "@/generated/prisma/client";
 
 function hashToken(raw: string): string {
@@ -37,15 +38,35 @@ async function issueTokenPair(usuario: Usuario) {
   return { accessToken, refreshToken };
 }
 
-export async function login(email: string, password: string) {
-  const usuario = await prisma.usuario.findUnique({ where: { email } });
+async function registrarFallo(email: string, ip: string | null) {
+  await prisma.intentoLogin.create({ data: { email, ip } });
+}
+
+export async function login(rawEmail: string, password: string, ip: string | null = null) {
+  const email = rawEmail.trim().toLowerCase();
+  const desde = new Date(Date.now() - VENTANA_MINUTOS * 60 * 1000);
+  const [fallosEmail, fallosIp] = await Promise.all([
+    prisma.intentoLogin.count({ where: { email, createdAt: { gte: desde } } }),
+    ip ? prisma.intentoLogin.count({ where: { ip, createdAt: { gte: desde } } }) : Promise.resolve(0),
+  ]);
+  if (debeBloquearLogin(fallosEmail, fallosIp)) {
+    throw new TooManyRequestsError(`Demasiados intentos fallidos. Espera ${VENTANA_MINUTOS} minutos e inténtalo de nuevo.`);
+  }
+
+  const usuario = await prisma.usuario.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
   if (!usuario || !usuario.activo) {
+    await registrarFallo(email, ip);
     throw new UnauthorizedError("Credenciales inválidas");
   }
   const valido = await verifyPassword(usuario.passwordHash, password);
   if (!valido) {
+    await registrarFallo(email, ip);
     throw new UnauthorizedError("Credenciales inválidas");
   }
+
+  await prisma.intentoLogin.deleteMany({
+    where: { OR: [{ email }, { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } }] },
+  });
 
   const tokens = await issueTokenPair(usuario);
   return {

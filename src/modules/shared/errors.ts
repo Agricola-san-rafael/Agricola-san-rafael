@@ -46,3 +46,9 @@ export class StockInsuficienteError extends ConflictError {
     this.kilosFaltantes = kilosFaltantes;
   }
 }
+
+export class TooManyRequestsError extends AppError {
+  constructor(message = "Demasiados intentos. Espera unos minutos.") {
+    super(message, 429);
+  }
+}

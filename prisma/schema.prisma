@@ -457,6 +457,18 @@ model MovimientoEntreEmpresas {
   @@map("movimientos_entre_empresas")
 }
 
+/// Intentos de login fallidos, para bloquear temporalmente cuando alguien prueba contraseñas.
+model IntentoLogin {
+  id        String   @id @default(uuid())
+  email     String
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+  @@map("intentos_login")
+}
+
 model Prospecto {
   id                  String           @id @default(uuid())
   nombreEmpresa       String           @map("nombre_empresa")
