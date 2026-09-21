@@ -59,6 +59,11 @@ export default async function VentasPage() {
                       forzada
                     </Badge>
                   )}
+                  {v.esAjuste && (
+                    <Badge variant="secondary" className="ml-2">
+                      ajuste de saldo
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   {v.variedad.nombre} / {v.calibre.codigo}

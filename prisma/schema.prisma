@@ -312,6 +312,9 @@ model Venta {
   /// Traza cuándo un admin usó "forzar venta" excediendo stock (sección 5.2).
   /// No está en 4.2; sin este campo esa acción excepcional no sería auditable.
   forzada       Boolean       @default(false)
+  /// Ajuste de saldo (ej. deuda arrastrada de la migración): cuadra lo que debe
+  /// el cliente pero no es una venta, así que no cuenta en ventas ni utilidad.
+  esAjuste      Boolean       @default(false) @map("es_ajuste")
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
   createdById   String?       @map("created_by")

@@ -21,7 +21,7 @@ export async function obtenerKPIs(): Promise<KPIs> {
 
   const [ventasMes, comprasMes, saldosClientes, saldosProveedores, lotes] = await Promise.all([
     prisma.venta.aggregate({
-      where: { fecha: { gte: inicioMes } },
+      where: { fecha: { gte: inicioMes }, esAjuste: false },
       _count: true,
       _sum: { total: true, margen: true },
     }),
@@ -74,7 +74,7 @@ export interface Concentracion {
 /** Top clientes/proveedores por volumen (sección 6: GET /reportes/concentracion). */
 export async function obtenerConcentracion(limite = 5): Promise<Concentracion> {
   const [ventas, compras] = await Promise.all([
-    prisma.venta.findMany({ include: { cliente: true } }),
+    prisma.venta.findMany({ where: { esAjuste: false }, include: { cliente: true } }),
     prisma.compra.findMany({ include: { proveedor: true } }),
   ]);
 
