@@ -44,6 +44,11 @@ enum CategoriaGasto {
   otro
 }
 
+enum EmpresaGasto {
+  agricola
+  transporte
+}
+
 enum FormaPagoGasto {
   efectivo
   transferencia
@@ -393,6 +398,8 @@ model GastoOperacional {
   monto          Decimal         @db.Decimal(12, 2)
   formaPago      FormaPagoGasto  @map("forma_pago")
   estadoPago     EstadoPagoGasto @map("estado_pago")
+  /// A qué empresa pertenece el gasto: la agrícola o Transportes San Rafael SpA.
+  empresa        EmpresaGasto    @default(agricola)
   comprobanteUrl String?         @map("comprobante_url")
   createdAt      DateTime        @default(now()) @map("created_at")
   createdById    String?         @map("created_by")
@@ -433,6 +440,21 @@ model Flete {
   @@index([compraId])
   @@index([ventaId])
   @@map("fletes")
+}
+
+/// Plata que la agrícola le presta al transporte (o que le devuelve). Monto
+/// positivo = la agrícola presta; negativo = el transporte devuelve. El saldo es la suma.
+model MovimientoEntreEmpresas {
+  id          String   @id @default(uuid())
+  fecha       DateTime @db.Date
+  monto       Decimal  @db.Decimal(14, 2)
+  concepto    String
+  referencia  String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById String?  @map("created_by")
+
+  @@index([fecha])
+  @@map("movimientos_entre_empresas")
 }
 
 model Prospecto {

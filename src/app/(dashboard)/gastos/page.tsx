@@ -46,7 +46,14 @@ export default async function GastosPage() {
               <TableRow key={g.id}>
                 <TableCell>{formatDateCL(g.fecha)}</TableCell>
                 <TableCell className="capitalize">{g.categoria.replace("_", " ")}</TableCell>
-                <TableCell>{g.descripcion ?? g.pagadoA ?? "—"}</TableCell>
+                <TableCell>
+                  {g.descripcion ?? g.pagadoA ?? "—"}
+                  {g.empresa === "transporte" && (
+                    <Badge variant="secondary" className="ml-2">
+                      transporte
+                    </Badge>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">{formatCLP(Number(g.monto))}</TableCell>
                 <TableCell>
                   <Badge variant={g.estadoPago === "pagado" ? "default" : "destructive"}>

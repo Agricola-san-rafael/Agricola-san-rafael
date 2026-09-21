@@ -13,6 +13,7 @@ export interface CierreMensual {
   ivaVentasEstimado: number;
   compras: { cantidad: number; kilos: number; total: number; ivaRegistrado: number };
   gastos: { total: number; porCategoria: Record<string, number> };
+  gastosTransporte: number;
   cobrosDelMes: number;
   pagosDelMes: number;
   fletes: ResumenFletes;
@@ -82,7 +83,12 @@ export async function obtenerCierreMensual(mes: string): Promise<CierreMensual> 
 
   const porCategoria: Record<string, number> = {};
   let gastosTotal = 0;
+  let gastosTransporte = 0;
   for (const g of gastos) {
+    if (g.empresa === "transporte") {
+      gastosTransporte += n(g.monto);
+      continue;
+    }
     porCategoria[g.categoria] = (porCategoria[g.categoria] ?? 0) + n(g.monto);
     gastosTotal += n(g.monto);
   }
@@ -100,11 +106,12 @@ export async function obtenerCierreMensual(mes: string): Promise<CierreMensual> 
       ivaRegistrado: compras.reduce((a, c) => a + n(c.iva), 0),
     },
     gastos: { total: gastosTotal, porCategoria },
+    gastosTransporte,
     cobrosDelMes: cobros.reduce((a, c) => a + n(c.monto), 0),
     pagosDelMes: pagos.reduce((a, p) => a + n(p.monto), 0),
     fletes,
     utilidadNeta: utilidadBruta - gastosTotal - fletes.imputadoAgricola,
-    utilidadNetaConsolidada: utilidadBruta - gastosTotal - fletes.costoReal + fletes.ingresoTerceros,
+    utilidadNetaConsolidada: utilidadBruta - gastosTotal - fletes.costoReal + fletes.ingresoTerceros - gastosTransporte,
     ajustesDeSaldo: { cantidad: ajustes.length, total: ajustes.reduce((a, v) => a + n(v.total), 0) },
     alDiaDeHoy: {
       porCobrar: porCobrar.total,
@@ -161,7 +168,8 @@ export async function generarExcelCierre(mes: string): Promise<Buffer> {
     ["", null],
     ["GASTOS OPERACIONALES", null],
     ...Object.entries(cierre.gastos.porCategoria).map(([c, m]) => [`  ${c}`, m] as [string, number]),
-    ["Total gastos", cierre.gastos.total],
+    ["Total gastos de la agrícola", cierre.gastos.total],
+    ["Gastos de Transportes San Rafael SpA (puesta en marcha y fijos)", cierre.gastosTransporte],
     ["", null],
     ["", null],
     ["FLETES (empresa de transporte)", null],
@@ -173,6 +181,7 @@ export async function generarExcelCierre(mes: string): Promise<Buffer> {
     ["Ingresos por fletes a terceros", cierre.fletes.ingresoTerceros],
     ["", null],
     ["UTILIDAD NETA agrícola (utilidad bruta - gastos - fletes imputados)", cierre.utilidadNeta],
+    ["UTILIDAD NETA transporte (ingresos - costo real de viajes - gastos de la empresa)", cierre.fletes.resultadoTransporte - cierre.gastosTransporte],
     ["UTILIDAD NETA consolidada (agrícola + transporte)", cierre.utilidadNetaConsolidada],
     ["", null],
     ["MOVIMIENTOS DE DINERO DEL MES", null],
@@ -229,10 +238,10 @@ export async function generarExcelCierre(mes: string): Promise<Buffer> {
     { header: "Fecha", key: "fecha", width: 12 }, { header: "Categoría", key: "categoria", width: 16 },
     { header: "Descripción", key: "descripcion", width: 40 }, { header: "Pagado a", key: "pagadoA", width: 26 },
     { header: "Monto", key: "monto", width: 14, clp: true }, { header: "Forma de pago", key: "forma", width: 14 },
-    { header: "Estado", key: "estado", width: 12 },
+    { header: "Estado", key: "estado", width: 12 }, { header: "Empresa", key: "empresa", width: 14 },
   ], datos.gastos.map((g) => ({
     fecha: dia(g.fecha), categoria: g.categoria, descripcion: g.descripcion ?? "", pagadoA: g.pagadoA ?? "",
-    monto: n(g.monto), forma: g.formaPago, estado: g.estadoPago,
+    monto: n(g.monto), forma: g.formaPago, estado: g.estadoPago, empresa: g.empresa,
   })));
 
   agregarHoja(libro, "Fletes", [

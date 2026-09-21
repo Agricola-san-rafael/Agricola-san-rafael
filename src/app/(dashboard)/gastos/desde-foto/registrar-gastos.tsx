@@ -25,10 +25,15 @@ interface Borrador {
   pagadoA: string;
   formaPago: FormaPago;
   estadoPago: "pagado" | "pendiente";
+  empresa: "agricola" | "transporte";
   comprobanteUrl?: string;
   duplicado?: { descripcion: string; fecha: string; monto: number } | null;
 }
 
+const EMPRESAS = [
+  { value: "agricola", label: "Agrícola San Rafael" },
+  { value: "transporte", label: "Transportes San Rafael SpA" },
+];
 const CATEGORIAS = [
   { value: "combustible", label: "Combustible" },
   { value: "flete", label: "Flete" },
@@ -75,7 +80,7 @@ export function RegistrarGastos() {
     const uid = crypto.randomUUID();
     setBorradores((prev) => [
       ...prev,
-      { uid, archivo: original.name, estado: "leyendo", fecha: "", monto: "", categoria: "otro", descripcion: "", pagadoA: "", formaPago: "efectivo", estadoPago: "pagado" },
+      { uid, archivo: original.name, estado: "leyendo", fecha: "", monto: "", categoria: "otro", descripcion: "", pagadoA: "", formaPago: "efectivo", estadoPago: "pagado", empresa: "agricola" },
     ]);
 
     const archivo = await reducirImagen(original);
@@ -120,7 +125,7 @@ export function RegistrarGastos() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         fecha: b.fecha, categoria: b.categoria, descripcion: b.descripcion || undefined, pagadoA: b.pagadoA || undefined,
-        monto, formaPago: b.formaPago, estadoPago: b.estadoPago, comprobanteUrl: b.comprobanteUrl,
+        monto, formaPago: b.formaPago, estadoPago: b.estadoPago, empresa: b.empresa, comprobanteUrl: b.comprobanteUrl,
       }),
     });
     if (!res.ok) {
@@ -173,6 +178,10 @@ export function RegistrarGastos() {
                 <div className="flex flex-col gap-1">
                   <Label>Monto</Label>
                   <Input inputMode="decimal" value={b.monto} onChange={(e) => actualizar(b.uid, { monto: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-1 sm:col-span-2">
+                  <Label>Empresa</Label>
+                  <SelectField value={b.empresa} onValueChange={(v) => actualizar(b.uid, { empresa: (v ?? "agricola") as Borrador["empresa"] })} options={EMPRESAS} />
                 </div>
                 <div className="flex flex-col gap-1">
                   <Label>Categoría</Label>

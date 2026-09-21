@@ -13,6 +13,7 @@ export const gastoSchema = z.object({
   monto: numeroPositivo,
   formaPago: z.enum(["efectivo", "transferencia", "otro"]),
   estadoPago: z.enum(["pagado", "pendiente"]),
+  empresa: z.enum(["agricola", "transporte"]).default("agricola"),
   comprobanteUrl: z.string().optional(),
 });
 

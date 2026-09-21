@@ -30,7 +30,8 @@ export default async function CierrePage({ searchParams }: { searchParams: Promi
   const tarjetas: [string, string][] = [
     ["Vendido", formatCLP(c.ventas.total)],
     ["Utilidad bruta", formatCLP(c.ventas.utilidadBruta)],
-    ["Gastos", formatCLP(c.gastos.total)],
+    ["Gastos de la agrícola", formatCLP(c.gastos.total)],
+    ["Gastos del transporte", formatCLP(c.gastosTransporte)],
     ["Fletes imputados", formatCLP(c.fletes.imputadoAgricola)],
     ["Utilidad neta agrícola", formatCLP(c.utilidadNeta)],
     ["Resultado del transporte", formatCLP(c.fletes.resultadoTransporte)],

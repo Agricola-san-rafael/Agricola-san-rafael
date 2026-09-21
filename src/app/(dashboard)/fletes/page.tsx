@@ -45,7 +45,12 @@ export default async function FletesPage() {
             Viajes de Transportes San Rafael SpA, ligados a la compra o venta que transportaron.
           </p>
         </div>
-        <LinkButton href="/fletes/nuevo">Nuevo viaje</LinkButton>
+        <div className="flex flex-wrap gap-2">
+          <LinkButton href="/fletes/prestamo" variant="outline">
+            Préstamo entre empresas
+          </LinkButton>
+          <LinkButton href="/fletes/nuevo">Nuevo viaje</LinkButton>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

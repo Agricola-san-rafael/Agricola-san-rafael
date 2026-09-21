@@ -18,6 +18,11 @@ import { gastoSchema } from "@/modules/gastos/schema";
 type FormInput = z.input<typeof gastoSchema>;
 type FormOutput = z.output<typeof gastoSchema>;
 
+const EMPRESAS = [
+  { value: "agricola", label: "Agrícola San Rafael" },
+  { value: "transporte", label: "Transportes San Rafael SpA" },
+];
+
 const CATEGORIAS = [
   { value: "combustible", label: "Combustible" },
   { value: "flete", label: "Flete" },
@@ -36,6 +41,7 @@ export function GastoForm() {
       categoria: "otro",
       formaPago: "efectivo",
       estadoPago: "pagado",
+      empresa: "agricola",
     },
   });
   const {
@@ -47,6 +53,7 @@ export function GastoForm() {
   } = form;
   const { limpiarBorrador } = useOfflineDraft("borrador-gasto", form);
 
+  const empresa = watch("empresa");
   const categoria = watch("categoria");
   const formaPago = watch("formaPago");
   const estadoPago = watch("estadoPago");
@@ -80,6 +87,15 @@ export function GastoForm() {
       <div className="flex flex-col gap-2">
         <Label htmlFor="fecha">Fecha</Label>
         <Input id="fecha" type="date" {...register("fecha")} />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>Empresa</Label>
+        <SelectField
+          value={empresa}
+          onValueChange={(value) => setValue("empresa", (value ?? "agricola") as FormOutput["empresa"])}
+          options={EMPRESAS}
+        />
       </div>
 
       <div className="flex flex-col gap-2">

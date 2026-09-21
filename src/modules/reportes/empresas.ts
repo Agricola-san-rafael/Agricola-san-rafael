@@ -22,6 +22,9 @@ export interface UtilidadEmpresas {
     costoPeajes: number;
     costoOtros: number;
     costoReal: number;
+    utilidadDeViajes: number;
+    gastos: number;
+    gastosPorCategoria: Record<string, number>;
     utilidad: number;
   };
   consolidado: { utilidad: number };
@@ -36,15 +39,22 @@ export async function obtenerUtilidadPorEmpresa(periodo: Periodo): Promise<Utili
 
   const [ventas, gastos, fletes] = await Promise.all([
     prisma.venta.aggregate({ where: { esAjuste: false, fecha }, _sum: { total: true, costoTotal: true } }),
-    prisma.gastoOperacional.findMany({ where: { fecha }, select: { categoria: true, monto: true } }),
+    prisma.gastoOperacional.findMany({ where: { fecha }, select: { categoria: true, monto: true, empresa: true } }),
     prisma.flete.findMany({ where: { fecha } }),
   ]);
 
   const gastosPorCategoria: Record<string, number> = {};
+  const gastosTransporteCat: Record<string, number> = {};
   let gastosTotal = 0;
+  let gastosTransporte = 0;
   for (const g of gastos) {
-    gastosPorCategoria[g.categoria] = (gastosPorCategoria[g.categoria] ?? 0) + n(g.monto);
-    gastosTotal += n(g.monto);
+    if (g.empresa === "transporte") {
+      gastosTransporteCat[g.categoria] = (gastosTransporteCat[g.categoria] ?? 0) + n(g.monto);
+      gastosTransporte += n(g.monto);
+    } else {
+      gastosPorCategoria[g.categoria] = (gastosPorCategoria[g.categoria] ?? 0) + n(g.monto);
+      gastosTotal += n(g.monto);
+    }
   }
 
   const t = { ingresosDeLaAgricola: 0, ingresosDeTerceros: 0, costoCombustible: 0, costoChofer: 0, costoPeajes: 0, costoOtros: 0 };
@@ -64,7 +74,8 @@ export async function obtenerUtilidadPorEmpresa(periodo: Periodo): Promise<Utili
   const costoLotes = n(ventas._sum.costoTotal);
   const utilidadBruta = ventasTotal - costoLotes;
   const utilidadNetaAgricola = utilidadBruta - gastosTotal - t.ingresosDeLaAgricola;
-  const utilidadTransporte = ingresos - costoReal;
+  const utilidadDeViajes = ingresos - costoReal;
+  const utilidadTransporte = utilidadDeViajes - gastosTransporte;
 
   return {
     agricola: {
@@ -76,7 +87,16 @@ export async function obtenerUtilidadPorEmpresa(periodo: Periodo): Promise<Utili
       fletesImputados: t.ingresosDeLaAgricola,
       utilidadNeta: utilidadNetaAgricola,
     },
-    transporte: { viajes: fletes.length, ...t, ingresos, costoReal, utilidad: utilidadTransporte },
+    transporte: {
+      viajes: fletes.length,
+      ...t,
+      ingresos,
+      costoReal,
+      utilidadDeViajes,
+      gastos: gastosTransporte,
+      gastosPorCategoria: gastosTransporteCat,
+      utilidad: utilidadTransporte,
+    },
     consolidado: { utilidad: utilidadNetaAgricola + utilidadTransporte },
   };
 }

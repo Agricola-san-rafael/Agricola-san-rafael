@@ -27,6 +27,7 @@ export async function crearGasto(input: GastoInput, creadoPor: string) {
         monto: new Prisma.Decimal(input.monto),
         formaPago: input.formaPago,
         estadoPago: input.estadoPago,
+        empresa: input.empresa,
         comprobanteUrl: input.comprobanteUrl,
         createdById: creadoPor,
       },

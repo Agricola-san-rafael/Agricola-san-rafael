@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { obtenerUtilidadPorEmpresa } from "@/modules/reportes/empresas";
+import { obtenerPrestamoEntreEmpresas } from "@/modules/empresas/prestamos";
 import type { Periodo } from "@/modules/reportes/utilidad";
 import { formatCLP } from "@/modules/shared/money";
 
@@ -43,7 +44,7 @@ export default async function EmpresasPage({ searchParams }: { searchParams: Pro
 
   const { periodo: p } = await searchParams;
   const periodo: Periodo = p === "anterior" || p === "todo" ? p : "mes";
-  const u = await obtenerUtilidadPorEmpresa(periodo);
+  const [u, prestamo] = await Promise.all([obtenerUtilidadPorEmpresa(periodo), obtenerPrestamoEntreEmpresas()]);
   const { agricola: a, transporte: t } = u;
 
   return (
@@ -88,7 +89,9 @@ export default async function EmpresasPage({ searchParams }: { searchParams: Pro
             ["Combustible", t.costoCombustible, "resta"],
             ["Chofer", t.costoChofer, "resta"],
             ["Peajes", t.costoPeajes, "resta"],
-            ["Otros costos", t.costoOtros, "resta"],
+            ["Otros costos del viaje", t.costoOtros, "resta"],
+            ["Utilidad de los viajes", t.utilidadDeViajes, "total"],
+            ["Gastos de la empresa (puesta en marcha y fijos)", t.gastos, "resta"],
           ]}
         />
       </div>
@@ -103,6 +106,13 @@ export default async function EmpresasPage({ searchParams }: { searchParams: Pro
           </p>
         </CardContent>
       </Card>
+
+      {prestamo.saldo !== 0 && (
+        <p className="text-sm text-muted-foreground">
+          Préstamo entre empresas: el transporte le debe {formatCLP(prestamo.saldo)} a la agrícola. Ese saldo no
+          es ingreso ni gasto de ninguna de las dos.
+        </p>
+      )}
 
       {t.viajes === 0 && (
         <p className="text-sm text-muted-foreground">
