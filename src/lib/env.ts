@@ -14,6 +14,8 @@ const envSchema = z.object({
   ALERTA_DIAS_ANTICIPACION: z.coerce.number().default(2),
   ALERTA_DIAS_GASTO_PENDIENTE: z.coerce.number().default(5),
   ALERTA_DIAS_ATRASO_CLIENTE: z.coerce.number().default(30),
+  NEON_API_KEY: z.string().optional(),
+  NEON_PROJECT_ID: z.string().optional(),
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),

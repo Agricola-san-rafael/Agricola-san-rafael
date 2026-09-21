@@ -3,6 +3,10 @@
     {
       "path": "/api/v1/cron/alertas",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/v1/cron/respaldo",
+      "schedule": "0 6 * * *"
     }
   ]
 }
