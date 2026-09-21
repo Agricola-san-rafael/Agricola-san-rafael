@@ -29,7 +29,7 @@ export default async function PorPagarPage() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">Total por cobrar</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Total por pagar</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xl font-semibold">{formatCLP(resumen.total)}</p>
