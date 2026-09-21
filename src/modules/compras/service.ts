@@ -2,17 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { ConflictError, NotFoundError } from "@/modules/shared/errors";
 import { paginatedResponse, type PageParams } from "@/modules/shared/pagination";
+import { calcularMontosCompra, compraTienePrecioNeto } from "./montos";
 import { registrarAuditLog } from "@/modules/shared/audit";
 import type { CompraInput, CompraUpdateInput } from "./schema";
 
 /** Código correlativo legible para identificar el lote manualmente al vender (ej. LOTE-0125). */
-const FACTOR_IVA = new Prisma.Decimal("1.19");
-
-/** Costo por kilo que se guarda en el lote: con IVA sumado si el proveedor factura con IVA. */
-function costoLoteKg(precioKg: Prisma.Decimal, facturaConIva: boolean) {
-  return facturaConIva ? precioKg.mul(FACTOR_IVA) : precioKg;
-}
-
 async function generarSkuLote(tx: Prisma.TransactionClient): Promise<string> {
   const [{ nextval }] = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('lote_sku_seq')`;
   return `LOTE-${nextval.toString().padStart(4, "0")}`;
@@ -122,12 +116,17 @@ export async function obtenerCompra(id: string) {
 export async function crearCompra(input: CompraInput, creadoPor: string) {
   const kilos = new Prisma.Decimal(input.kilos);
   const precioKg = new Prisma.Decimal(input.precioKg);
-  const total = kilos.mul(precioKg);
   const proveedor = await prisma.proveedor.findUnique({
     where: { id: input.proveedorId },
     select: { facturaConIva: true },
   });
-  const costoKg = costoLoteKg(precioKg, proveedor?.facturaConIva ?? false);
+  const montos = calcularMontosCompra({
+    kilos,
+    precioKg,
+    facturaConIva: proveedor?.facturaConIva ?? false,
+    informoNetoOIva: input.neto !== undefined || input.iva !== undefined,
+  });
+  const { total, costoKg } = montos;
 
   return prisma.$transaction(async (tx) => {
     const compra = await tx.compra.create({
@@ -143,8 +142,8 @@ export async function crearCompra(input: CompraInput, creadoPor: string) {
         formaPago: input.formaPago,
         estadoPago: input.estadoPago,
         nFactura: input.nFactura,
-        neto: input.neto !== undefined ? new Prisma.Decimal(input.neto) : undefined,
-        iva: input.iva !== undefined ? new Prisma.Decimal(input.iva) : undefined,
+        neto: montos.neto ?? (input.neto !== undefined ? new Prisma.Decimal(input.neto) : undefined),
+        iva: montos.iva ?? (input.iva !== undefined ? new Prisma.Decimal(input.iva) : undefined),
         observaciones: input.observaciones,
         createdById: creadoPor,
       },
@@ -220,10 +219,21 @@ export async function actualizarCompra(id: string, input: CompraUpdateInput, act
   return prisma.$transaction(async (tx) => {
     const kilos = input.kilos !== undefined ? new Prisma.Decimal(input.kilos) : undefined;
     const precioKg = input.precioKg !== undefined ? new Prisma.Decimal(input.precioKg) : undefined;
-    const total =
+    const proveedor = await tx.proveedor.findUnique({
+      where: { id: input.proveedorId ?? compra.proveedorId },
+      select: { facturaConIva: true },
+    });
+    const montos =
       kilos !== undefined || precioKg !== undefined
-        ? (kilos ?? compra.kilos).mul(precioKg ?? compra.precioKg)
+        ? calcularMontosCompra({
+            kilos: kilos ?? compra.kilos,
+            precioKg: precioKg ?? compra.precioKg,
+            facturaConIva: proveedor?.facturaConIva ?? false,
+            informoNetoOIva:
+              input.neto !== undefined || input.iva !== undefined || !compraTienePrecioNeto(compra),
+          })
         : undefined;
+    const total = montos?.total;
 
     const compraActualizada = await tx.compra.update({
       where: { id },
@@ -239,17 +249,13 @@ export async function actualizarCompra(id: string, input: CompraUpdateInput, act
         formaPago: input.formaPago,
         estadoPago: input.estadoPago,
         nFactura: input.nFactura,
-        neto: input.neto !== undefined ? new Prisma.Decimal(input.neto) : undefined,
-        iva: input.iva !== undefined ? new Prisma.Decimal(input.iva) : undefined,
+        neto: montos?.neto ?? (input.neto !== undefined ? new Prisma.Decimal(input.neto) : undefined),
+        iva: montos?.iva ?? (input.iva !== undefined ? new Prisma.Decimal(input.iva) : undefined),
         observaciones: input.observaciones,
       },
     });
 
     if (cambiaCantidadOCosto && compra.lote) {
-      const proveedor = await tx.proveedor.findUnique({
-        where: { id: compraActualizada.proveedorId },
-        select: { facturaConIva: true },
-      });
       await tx.loteInventario.update({
         where: { id: compra.lote.id },
         data: {
@@ -258,7 +264,7 @@ export async function actualizarCompra(id: string, input: CompraUpdateInput, act
           fechaIngreso: input.fecha ? new Date(input.fecha) : undefined,
           kilosIniciales: kilos,
           kilosDisponibles: kilos,
-          costoKg: precioKg && costoLoteKg(precioKg, proveedor?.facturaConIva ?? false),
+          costoKg: precioKg !== undefined ? montos?.costoKg : undefined,
         },
       });
     }
