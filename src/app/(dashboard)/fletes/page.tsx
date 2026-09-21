@@ -42,7 +42,7 @@ export default async function FletesPage() {
         <div>
           <h1 className="text-2xl font-semibold">Fletes</h1>
           <p className="text-muted-foreground">
-            Viajes de la empresa de transporte, ligados a la compra o venta que transportaron.
+            Viajes de Transportes San Rafael SpA, ligados a la compra o venta que transportaron.
           </p>
         </div>
         <LinkButton href="/fletes/nuevo">Nuevo viaje</LinkButton>

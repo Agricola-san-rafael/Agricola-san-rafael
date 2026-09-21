@@ -51,7 +51,7 @@ export default async function EmpresasPage({ searchParams }: { searchParams: Pro
       <div>
         <h1 className="text-2xl font-semibold">Utilidad por empresa</h1>
         <p className="text-muted-foreground">
-          Agrícola y transporte por separado. Un viaje sin tarifa se cobra a la agrícola a su costo real,
+          Agrícola San Rafael y Transportes San Rafael SpA por separado. Un viaje sin tarifa se cobra a la agrícola a su costo real,
           así ningún costo se cuenta dos veces al sumar las dos empresas.
         </p>
       </div>
@@ -78,7 +78,7 @@ export default async function EmpresasPage({ searchParams }: { searchParams: Pro
           ]}
         />
         <Bloque
-          titulo={`Empresa de transporte (${t.viajes} viajes)`}
+          titulo={`Transportes San Rafael SpA (${t.viajes} viajes)`}
           etiquetaResultado="Utilidad del transporte"
           resultado={t.utilidad}
           filas={[
