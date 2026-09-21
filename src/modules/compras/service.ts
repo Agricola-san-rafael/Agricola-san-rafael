@@ -4,6 +4,8 @@ import { ConflictError, NotFoundError } from "@/modules/shared/errors";
 import { paginatedResponse, type PageParams } from "@/modules/shared/pagination";
 import { calcularMontosCompra, compraTienePrecioNeto } from "./montos";
 import { registrarAuditLog } from "@/modules/shared/audit";
+import { PREFIJO_PAGO_AUTOMATICO } from "@/modules/shared/anulacion";
+import { recalcularEstadoPagoCompras } from "@/modules/pagos/estado-pago";
 import type { CompraInput, CompraUpdateInput } from "./schema";
 
 /** Código correlativo legible para identificar el lote manualmente al vender (ej. LOTE-0125). */
@@ -267,6 +269,16 @@ export async function actualizarCompra(id: string, input: CompraUpdateInput, act
           costoKg: precioKg !== undefined ? montos?.costoKg : undefined,
         },
       });
+    }
+
+    if (total !== undefined) {
+      const automaticos = await tx.movimientoPago.findMany({
+        where: { compraId: id, referencia: { startsWith: PREFIJO_PAGO_AUTOMATICO } },
+      });
+      if (automaticos.length === 1) {
+        await tx.movimientoPago.update({ where: { id: automaticos[0].id }, data: { monto: total } });
+      }
+      await recalcularEstadoPagoCompras(tx, compraActualizada.proveedorId);
     }
 
     await registrarAuditLog(tx, {

@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
 import { diferenciaDiasUTC } from "@/modules/shared/dates";
-import { repartirCobros } from "./estado-pago";
+import { repartirCobros, separarAbonos } from "./estado-pago";
 import { armarMensajeCobro, urlWhatsApp, type LineaDeuda } from "./mensaje-cobro";
 
 export interface DeudaCliente {
@@ -35,6 +34,7 @@ export async function obtenerPorCobrar(hoy: Date = new Date()): Promise<ResumenP
     prisma.venta.findMany({
       orderBy: [{ fecha: "asc" }, { createdAt: "asc" }],
       select: {
+        id: true,
         clienteId: true,
         fecha: true,
         total: true,
@@ -44,12 +44,15 @@ export async function obtenerPorCobrar(hoy: Date = new Date()): Promise<ResumenP
         cliente: { select: { nombre: true, telefono: true } },
       },
     }),
-    prisma.movimientoCobro.groupBy({ by: ["clienteId"], _sum: { monto: true } }),
+    prisma.movimientoCobro.findMany({ select: { clienteId: true, ventaId: true, monto: true } }),
   ]);
 
-  const cobradoPorCliente = new Map(
-    cobros.map((c) => [c.clienteId, c._sum.monto ?? new Prisma.Decimal(0)]),
-  );
+  const cobrosPorCliente = new Map<string, typeof cobros>();
+  for (const c of cobros) {
+    const lista = cobrosPorCliente.get(c.clienteId) ?? [];
+    lista.push(c);
+    cobrosPorCliente.set(c.clienteId, lista);
+  }
   const ventasPorCliente = new Map<string, typeof ventas>();
   for (const v of ventas) {
     const lista = ventasPorCliente.get(v.clienteId) ?? [];
@@ -59,7 +62,10 @@ export async function obtenerPorCobrar(hoy: Date = new Date()): Promise<ResumenP
 
   const clientes: DeudaCliente[] = [];
   for (const [clienteId, lista] of ventasPorCliente) {
-    const cobrado = cobradoPorCliente.get(clienteId) ?? new Prisma.Decimal(0);
+    const { abonadoPorVenta, libre } = separarAbonos(
+      cobrosPorCliente.get(clienteId) ?? [],
+      new Set(lista.map((v) => v.id)),
+    );
     const deuda: DeudaCliente = {
       clienteId,
       nombre: lista[0].cliente.nombre,
@@ -74,7 +80,7 @@ export async function obtenerPorCobrar(hoy: Date = new Date()): Promise<ResumenP
     };
     const lineas: LineaDeuda[] = [];
 
-    for (const { venta, pendiente } of repartirCobros(lista, cobrado)) {
+    for (const { venta, pendiente } of repartirCobros(lista, libre, abonadoPorVenta)) {
       if (!pendiente.gt(0)) continue;
       const monto = pendiente.toNumber();
       const dias = diferenciaDiasUTC(hoy, venta.fecha);

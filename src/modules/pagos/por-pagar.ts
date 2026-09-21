@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
 import { diferenciaDiasUTC } from "@/modules/shared/dates";
-import { repartirCobros as repartirPagos } from "@/modules/cobros/estado-pago";
+import { repartirCobros as repartirPagos, separarAbonos } from "@/modules/cobros/estado-pago";
 
 export interface DeudaProveedor {
   proveedorId: string;
@@ -32,18 +31,22 @@ export async function obtenerPorPagar(hoy: Date = new Date()): Promise<ResumenPo
     prisma.compra.findMany({
       orderBy: [{ fecha: "asc" }, { createdAt: "asc" }],
       select: {
+        id: true,
         proveedorId: true,
         fecha: true,
         total: true,
         proveedor: { select: { nombre: true, telefono: true, facturaConIva: true } },
       },
     }),
-    prisma.movimientoPago.groupBy({ by: ["proveedorId"], _sum: { monto: true } }),
+    prisma.movimientoPago.findMany({ select: { proveedorId: true, compraId: true, monto: true } }),
   ]);
 
-  const pagadoPorProveedor = new Map(
-    pagos.map((p) => [p.proveedorId, p._sum.monto ?? new Prisma.Decimal(0)]),
-  );
+  const pagosPorProveedor = new Map<string, typeof pagos>();
+  for (const p of pagos) {
+    const lista = pagosPorProveedor.get(p.proveedorId) ?? [];
+    lista.push(p);
+    pagosPorProveedor.set(p.proveedorId, lista);
+  }
   const comprasPorProveedor = new Map<string, typeof compras>();
   for (const c of compras) {
     const lista = comprasPorProveedor.get(c.proveedorId) ?? [];
@@ -53,7 +56,10 @@ export async function obtenerPorPagar(hoy: Date = new Date()): Promise<ResumenPo
 
   const proveedores: DeudaProveedor[] = [];
   for (const [proveedorId, lista] of comprasPorProveedor) {
-    const pagado = pagadoPorProveedor.get(proveedorId) ?? new Prisma.Decimal(0);
+    const { abonadoPorVenta, libre } = separarAbonos(
+      (pagosPorProveedor.get(proveedorId) ?? []).map((p) => ({ monto: p.monto, ventaId: p.compraId })),
+      new Set(lista.map((c) => c.id)),
+    );
     const deuda: DeudaProveedor = {
       proveedorId,
       nombre: lista[0].proveedor.nombre,
@@ -66,7 +72,7 @@ export async function obtenerPorPagar(hoy: Date = new Date()): Promise<ResumenPo
       diasDeudaMasAntigua: 0,
     };
 
-    for (const { venta: compra, pendiente } of repartirPagos(lista, pagado)) {
+    for (const { venta: compra, pendiente } of repartirPagos(lista, libre, abonadoPorVenta)) {
       if (!pendiente.gt(0)) continue;
       const monto = pendiente.toNumber();
       const dias = diferenciaDiasUTC(hoy, compra.fecha);

@@ -20,3 +20,19 @@ export const ventaSchema = z.object({
 });
 
 export type VentaInput = z.infer<typeof ventaSchema>;
+
+const numeroPositivoOpcional = z.preprocess(
+  (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
+  z.number().positive().optional()
+);
+
+export const ventaCorreccionSchema = z.object({
+  fecha: z.string().min(1).optional(),
+  kilos: numeroPositivoOpcional,
+  precioKg: numeroPositivoOpcional,
+  tipoDocumento: z.enum(["boleta", "factura", "sin_documento"]).optional(),
+  nDocumento: z.string().optional(),
+  observaciones: z.string().optional(),
+});
+
+export type VentaCorreccionInput = z.infer<typeof ventaCorreccionSchema>;

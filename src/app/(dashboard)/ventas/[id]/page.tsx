@@ -13,9 +13,12 @@ import { obtenerVenta } from "@/modules/ventas/service";
 import { formatCLP } from "@/modules/shared/money";
 import { formatDateCL } from "@/modules/shared/dates";
 import { NotFoundError } from "@/modules/shared/errors";
+import { getSession } from "@/lib/auth";
+import { AccionesVenta } from "./acciones-venta";
 
 export default async function VentaDetallePage({ params }: PageProps<"/ventas/[id]">) {
   const { id } = await params;
+  const session = await getSession();
 
   try {
     const venta = await obtenerVenta(id);
@@ -34,6 +37,20 @@ export default async function VentaDetallePage({ params }: PageProps<"/ventas/[i
           <p className="text-muted-foreground">
             {formatDateCL(venta.fecha)} · {venta.variedad.nombre} / {venta.calibre.codigo}
           </p>
+          {session?.rol === "admin" && (
+            <div className="mt-3">
+              <AccionesVenta
+                venta={{
+                  id: venta.id,
+                  fecha: venta.fecha.toISOString().slice(0, 10),
+                  kilos: Number(venta.kilos),
+                  precioKg: Number(venta.precioKg),
+                  nDocumento: venta.nDocumento ?? "",
+                  observaciones: venta.observaciones ?? "",
+                }}
+              />
+            </div>
+          )}
         </div>
 
         <div className="grid max-w-2xl grid-cols-3 gap-4">

@@ -5,9 +5,12 @@ import { obtenerCompra } from "@/modules/compras/service";
 import { formatCLP } from "@/modules/shared/money";
 import { formatDateCL } from "@/modules/shared/dates";
 import { NotFoundError } from "@/modules/shared/errors";
+import { getSession } from "@/lib/auth";
+import { AccionesCompra } from "./acciones-compra";
 
 export default async function CompraDetallePage({ params }: PageProps<"/compras/[id]">) {
   const { id } = await params;
+  const session = await getSession();
 
   try {
     const compra = await obtenerCompra(id);
@@ -22,6 +25,20 @@ export default async function CompraDetallePage({ params }: PageProps<"/compras/
             {formatDateCL(compra.fecha)} ·{" "}
             {compra.variedad.nombre} / {compra.calibre.codigo}
           </p>
+          {session?.rol === "admin" && (
+            <div className="mt-3">
+              <AccionesCompra
+                compra={{
+                  id: compra.id,
+                  fecha: compra.fecha.toISOString().slice(0, 10),
+                  kilos: Number(compra.kilos),
+                  precioKg: Number(compra.precioKg),
+                  nFactura: compra.nFactura ?? "",
+                  observaciones: compra.observaciones ?? "",
+                }}
+              />
+            </div>
+          )}
         </div>
 
         <div className="grid max-w-2xl grid-cols-2 gap-4">
