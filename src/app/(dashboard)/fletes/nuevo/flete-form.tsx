@@ -31,14 +31,18 @@ export function FleteForm({
   compras,
   ventas,
   clientesTransporte,
+  tipoInicial = "venta",
+  volverA = "/fletes",
 }: {
   compras: Opcion[];
   ventas: Opcion[];
   clientesTransporte: Opcion[];
+  tipoInicial?: "compra" | "venta" | "tercero";
+  volverA?: string;
 }) {
   const router = useRouter();
   const [enviando, setEnviando] = useState(false);
-  const [tipo, setTipo] = useState<"compra" | "venta" | "tercero">("venta");
+  const [tipo, setTipo] = useState<"compra" | "venta" | "tercero">(tipoInicial);
   const [fecha, setFecha] = useState(todayLocalISODate());
   const [operacionId, setOperacionId] = useState<string | undefined>();
   const [clienteId, setClienteId] = useState<string | undefined>();
@@ -83,8 +87,8 @@ export function FleteForm({
         toast.error(data.error ?? "No se pudo registrar el viaje");
         return;
       }
-      toast.success("Viaje registrado");
-      router.push("/fletes");
+      toast.success(tipo === "tercero" ? "Servicio de transporte registrado" : "Viaje registrado");
+      router.push(volverA);
       router.refresh();
     } finally {
       setEnviando(false);
@@ -235,7 +239,7 @@ export function FleteForm({
       </div>
 
       <Button className="w-fit" onClick={guardar} disabled={enviando}>
-        {enviando ? "Guardando..." : "Registrar viaje"}
+        {enviando ? "Guardando..." : tipo === "tercero" ? "Registrar servicio" : "Registrar viaje"}
       </Button>
     </div>
   );

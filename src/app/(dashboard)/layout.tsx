@@ -47,7 +47,7 @@ function navGroups(alertasPendientes: number, esAdmin: boolean): NavGroup[] {
       label: "Agrícola San Rafael",
       items: [
         { href: "/compras", label: "Compras", iconKey: "compras" },
-        { href: "/ventas", label: "Ventas", iconKey: "ventas" },
+        { href: "/ventas?empresa=agricola", label: "Ventas", iconKey: "ventas" },
         { href: "/inventario", label: "Inventario", iconKey: "inventario" },
         { href: "/clientes", label: "Clientes", iconKey: "clientes" },
         { href: "/proveedores", label: "Proveedores", iconKey: "proveedores" },
@@ -62,6 +62,7 @@ function navGroups(alertasPendientes: number, esAdmin: boolean): NavGroup[] {
       label: "Transportes San Rafael SpA",
       items: [
         { href: "/fletes", label: "Fletes", iconKey: "fletes" },
+        { href: "/ventas?empresa=transporte", label: "Ventas", iconKey: "ventas" },
         { href: "/fletes/clientes", label: "Clientes", iconKey: "clientes" },
         { href: "/fletes/proveedores", label: "Proveedores", iconKey: "proveedores" },
         { href: "/gastos?empresa=transporte", label: "Gastos", iconKey: "gastos" },

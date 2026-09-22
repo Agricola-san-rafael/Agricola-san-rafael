@@ -148,6 +148,19 @@ export async function resumirFletes(desde?: Date, hasta?: Date): Promise<Resumen
   return r;
 }
 
+/**
+ * "Ventas" de Transportes San Rafael SpA: fletes a terceros, que es la única
+ * plata que el transporte cobra a alguien externo (lo demás es costo interno
+ * imputado a la agrícola). Se muestran en /ventas junto a las ventas de fruta.
+ */
+export async function listarServiciosTransporte() {
+  return prisma.flete.findMany({
+    where: { tipo: "tercero" },
+    orderBy: { fecha: "desc" },
+    include: { cliente: { select: { nombre: true } } },
+  });
+}
+
 export async function marcarFleteCobrado(id: string, fecha: string, usuarioId: string) {
   return prisma.$transaction(async (tx) => {
     const flete = await tx.flete.findUnique({ where: { id } });
