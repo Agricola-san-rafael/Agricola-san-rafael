@@ -35,6 +35,11 @@ export function FleteForm({ compras, ventas }: { compras: Opcion[]; ventas: Opci
   const [destino, setDestino] = useState("");
   const [kilos, setKilos] = useState("");
   const [vehiculo, setVehiculo] = useState("");
+  const [km, setKm] = useState("");
+  const [nombreChofer, setNombreChofer] = useState("");
+  const [estadoCobro, setEstadoCobro] = useState<"pendiente" | "cobrado">("pendiente");
+  const [nFactura, setNFactura] = useState("");
+  const [totalFacturado, setTotalFacturado] = useState("");
   const [combustible, setCombustible] = useState("");
   const [chofer, setChofer] = useState("");
   const [peajes, setPeajes] = useState("");
@@ -54,7 +59,8 @@ export function FleteForm({ compras, ventas }: { compras: Opcion[]; ventas: Opci
           fecha, tipo,
           compraId: tipo === "compra" ? operacionId : undefined,
           ventaId: tipo === "venta" ? operacionId : undefined,
-          terceroNombre: tercero, origen, destino, kilos, vehiculo,
+          terceroNombre: tercero, origen, destino, kilos, vehiculo, km, chofer: nombreChofer, estadoCobro, nFactura,
+          totalFacturado: totalFacturado ? num(totalFacturado) : undefined,
           costoCombustible: num(combustible), costoChofer: num(chofer), costoPeajes: num(peajes), costoOtros: num(otros),
           tarifaCobrada: tarifa ? num(tarifa) : undefined, observaciones,
         }),
@@ -120,6 +126,14 @@ export function FleteForm({ compras, ventas }: { compras: Opcion[]; ventas: Opci
           <Input inputMode="decimal" value={kilos} onChange={(e) => setKilos(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1">
+          <Label>Kilómetros recorridos</Label>
+          <Input inputMode="decimal" value={km} onChange={(e) => setKm(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label>Nombre del chofer</Label>
+          <Input value={nombreChofer} onChange={(e) => setNombreChofer(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1">
           <Label>Camión o patente</Label>
           <Input value={vehiculo} onChange={(e) => setVehiculo(e.target.value)} />
         </div>
@@ -157,6 +171,30 @@ export function FleteForm({ compras, ventas }: { compras: Opcion[]; ventas: Opci
           </p>
         )}
       </div>
+
+      {tipo === "tercero" && (
+        <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <Label>Estado del cobro</Label>
+            <SelectField
+              value={estadoCobro}
+              onValueChange={(v) => setEstadoCobro((v ?? "pendiente") as typeof estadoCobro)}
+              options={[
+                { value: "pendiente", label: "Pendiente de cobro" },
+                { value: "cobrado", label: "Ya cobrado" },
+              ]}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label>N° de factura (opcional)</Label>
+            <Input value={nFactura} onChange={(e) => setNFactura(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label>Total facturado con IVA (opcional)</Label>
+            <Input inputMode="decimal" value={totalFacturado} onChange={(e) => setTotalFacturado(e.target.value)} />
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1">
         <Label>Observaciones</Label>

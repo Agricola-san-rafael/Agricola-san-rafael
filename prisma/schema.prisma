@@ -72,6 +72,11 @@ enum TipoFlete {
   tercero
 }
 
+enum EstadoCobroFlete {
+  pendiente
+  cobrado
+}
+
 enum EstadoLote {
   disponible
   agotado
@@ -400,12 +405,16 @@ model GastoOperacional {
   estadoPago     EstadoPagoGasto @map("estado_pago")
   /// A qué empresa pertenece el gasto: la agrícola o Transportes San Rafael SpA.
   empresa        EmpresaGasto    @default(agricola)
+  /// Si el gasto lo generó un costo fijo recurrente.
+  costoFijoId    String?         @map("costo_fijo_id")
+  costoFijo      CostoFijoRecurrente? @relation(fields: [costoFijoId], references: [id], onDelete: SetNull)
   comprobanteUrl String?         @map("comprobante_url")
   createdAt      DateTime        @default(now()) @map("created_at")
   createdById    String?         @map("created_by")
   createdBy      Usuario?        @relation(fields: [createdById], references: [id])
 
   @@index([fecha])
+  @@index([costoFijoId])
   @@map("gastos_operacionales")
 }
 
@@ -432,9 +441,19 @@ model Flete {
   costoOtros       Decimal   @default(0) @map("costo_otros") @db.Decimal(12, 2)
   costoTotal       Decimal   @map("costo_total") @db.Decimal(12, 2)
   tarifaCobrada    Decimal?  @map("tarifa_cobrada") @db.Decimal(12, 2)
+  km               Decimal?  @db.Decimal(8, 2)
+  chofer           String?
+  /// Solo aplica a los viajes cobrados a un tercero.
+  estadoCobro      EstadoCobroFlete @default(pendiente) @map("estado_cobro")
+  fechaCobro       DateTime? @map("fecha_cobro") @db.Date
+  nFactura         String?   @map("n_factura")
+  /// Monto que paga el cliente (con IVA si se factura); si está vacío se usa la tarifa.
+  totalFacturado   Decimal?  @map("total_facturado") @db.Decimal(12, 2)
   observaciones    String?
   createdAt        DateTime  @default(now()) @map("created_at")
   createdById      String?   @map("created_by")
+
+  movimientosChofer MovimientoChofer[]
 
   @@index([fecha])
   @@index([compraId])
@@ -467,6 +486,42 @@ model IntentoLogin {
   @@index([email, createdAt])
   @@index([ip, createdAt])
   @@map("intentos_login")
+}
+
+/// Costo fijo que se repite cada mes (cuota del camión, seguros, contador...).
+/// Cada día se crea solo el gasto del mes cuando llega su día.
+model CostoFijoRecurrente {
+  id                String         @id @default(uuid())
+  empresa           EmpresaGasto   @default(transporte)
+  concepto          String
+  categoria         CategoriaGasto @default(otro)
+  monto             Decimal        @db.Decimal(12, 2)
+  diaDelMes         Int            @map("dia_del_mes")
+  desde             DateTime       @db.Date
+  activo            Boolean        @default(true)
+  /// Si se paga desde la cuenta de la agrícola, también suma al préstamo entre empresas.
+  pagadoPorAgricola Boolean        @default(false) @map("pagado_por_agricola")
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  gastos GastoOperacional[]
+
+  @@map("costos_fijos_recurrentes")
+}
+
+/// Cuenta con cada chofer: monto positivo = se le debe (sueldo, reembolso); negativo = se le pagó.
+model MovimientoChofer {
+  id        String   @id @default(uuid())
+  fecha     DateTime @db.Date
+  chofer    String
+  monto     Decimal  @db.Decimal(12, 2)
+  concepto  String
+  fleteId   String?  @map("flete_id")
+  flete     Flete?   @relation(fields: [fleteId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now()) @map("created_at")
+  createdById String? @map("created_by")
+
+  @@index([chofer])
+  @@map("movimientos_chofer")
 }
 
 model Prospecto {

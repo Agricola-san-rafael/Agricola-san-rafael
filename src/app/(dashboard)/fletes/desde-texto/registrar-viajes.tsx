@@ -31,6 +31,10 @@ interface Borrador {
   destino: string;
   kilos: string;
   chofer: string;
+  km: string;
+  estadoCobro: "pendiente" | "cobrado";
+  nFactura: string;
+  totalFacturado: string;
   combustible: string;
   choferCosto: string;
   peajes: string;
@@ -61,6 +65,10 @@ function aBorrador(v: ViajeExtraido, duplicado: string | null): Borrador {
     destino: v.destino ?? "",
     kilos: txt(v.kilos),
     chofer: v.chofer ?? "",
+    km: txt(v.km),
+    estadoCobro: "pendiente",
+    nFactura: "",
+    totalFacturado: "",
     combustible: txt(v.costoCombustible),
     choferCosto: txt(v.costoChofer),
     peajes: txt(v.costoPeajes),
@@ -150,6 +158,11 @@ export function RegistrarViajes({ compras, ventas }: { compras: Opcion[]; ventas
         origen: b.origen,
         destino: b.destino,
         kilos: b.kilos,
+        km: b.km,
+        chofer: b.chofer,
+        estadoCobro: b.estadoCobro,
+        nFactura: b.nFactura,
+        totalFacturado: b.totalFacturado ? num(b.totalFacturado) : undefined,
         costoCombustible: num(b.combustible),
         costoChofer: num(b.choferCosto),
         costoPeajes: num(b.peajes),
@@ -271,6 +284,37 @@ export function RegistrarViajes({ compras, ventas }: { compras: Opcion[]; ventas
                   <Label>Kilos (opcional)</Label>
                   <Input inputMode="decimal" value={b.kilos} onChange={(e) => actualizar(b.uid, { kilos: e.target.value })} />
                 </div>
+                <div className="flex flex-col gap-1">
+                  <Label>Chofer</Label>
+                  <Input value={b.chofer} onChange={(e) => actualizar(b.uid, { chofer: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label>Kilómetros</Label>
+                  <Input inputMode="decimal" value={b.km} onChange={(e) => actualizar(b.uid, { km: e.target.value })} />
+                </div>
+                {b.tipo === "tercero" && (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <Label>Estado del cobro</Label>
+                      <SelectField
+                        value={b.estadoCobro}
+                        onValueChange={(v) => actualizar(b.uid, { estadoCobro: (v ?? "pendiente") as Borrador["estadoCobro"] })}
+                        options={[
+                          { value: "pendiente", label: "Pendiente de cobro" },
+                          { value: "cobrado", label: "Ya cobrado" },
+                        ]}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label>N° de factura (opcional)</Label>
+                      <Input value={b.nFactura} onChange={(e) => actualizar(b.uid, { nFactura: e.target.value })} />
+                    </div>
+                    <div className="flex flex-col gap-1 sm:col-span-2">
+                      <Label>Total facturado con IVA (opcional)</Label>
+                      <Input inputMode="decimal" value={b.totalFacturado} onChange={(e) => actualizar(b.uid, { totalFacturado: e.target.value })} />
+                    </div>
+                  </>
+                )}
                 <div className="flex flex-col gap-1 sm:col-span-2">
                   <Label>Observaciones</Label>
                   <Input value={b.observaciones} onChange={(e) => actualizar(b.uid, { observaciones: e.target.value })} />

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { generarAlertas } from "@/modules/alertas/generar-alertas";
 import { enviarAlertasPendientes } from "@/modules/alertas/service";
+import { generarCostosFijosDelDia } from "@/modules/fletes/costos-fijos";
 
 /**
  * Vercel Cron Jobs llaman por GET e incluyen automáticamente
@@ -22,7 +23,8 @@ function autorizado(request: Request): boolean {
 async function ejecutar() {
   const generadas = await generarAlertas();
   const enviadas = await enviarAlertasPendientes();
-  return { ...generadas, ...enviadas };
+  const costosFijos = await generarCostosFijosDelDia();
+  return { ...generadas, ...enviadas, costosFijosCreados: costosFijos.creados };
 }
 
 export async function GET(request: Request) {

@@ -23,6 +23,12 @@ export async function crearFlete(input: FleteInput, creadoPor: string) {
         destino: input.destino,
         kilos: input.kilos !== undefined ? new Prisma.Decimal(input.kilos) : undefined,
         vehiculo: input.vehiculo,
+        km: input.km !== undefined ? new Prisma.Decimal(input.km) : undefined,
+        chofer: input.chofer,
+        estadoCobro: input.tipo === "tercero" ? input.estadoCobro : "cobrado",
+        fechaCobro: input.tipo !== "tercero" || input.estadoCobro === "cobrado" ? new Date(input.fecha) : undefined,
+        nFactura: input.nFactura,
+        totalFacturado: input.totalFacturado !== undefined ? new Prisma.Decimal(input.totalFacturado) : undefined,
         costoCombustible: new Prisma.Decimal(input.costoCombustible),
         costoChofer: new Prisma.Decimal(input.costoChofer),
         costoPeajes: new Prisma.Decimal(input.costoPeajes),
@@ -33,6 +39,18 @@ export async function crearFlete(input: FleteInput, creadoPor: string) {
         createdById: creadoPor,
       },
     });
+    if (input.chofer && input.costoChofer > 0) {
+      await tx.movimientoChofer.create({
+        data: {
+          fecha: new Date(input.fecha),
+          chofer: input.chofer,
+          monto: new Prisma.Decimal(input.costoChofer),
+          concepto: `Pago del viaje ${[input.origen, input.destino].filter(Boolean).join(" → ") || input.fecha}`,
+          fleteId: flete.id,
+          createdById: creadoPor,
+        },
+      });
+    }
     await registrarAuditLog(tx, {
       tabla: "fletes",
       registroId: flete.id,
@@ -127,4 +145,21 @@ export async function resumirFletes(desde?: Date, hasta?: Date): Promise<Resumen
   }
   r.resultadoTransporte = r.ingresos - r.costoReal;
   return r;
+}
+
+export async function marcarFleteCobrado(id: string, fecha: string, usuarioId: string) {
+  return prisma.$transaction(async (tx) => {
+    const flete = await tx.flete.findUnique({ where: { id } });
+    if (!flete) throw new NotFoundError("Flete no encontrado");
+    const actualizado = await tx.flete.update({ where: { id }, data: { estadoCobro: "cobrado", fechaCobro: new Date(fecha) } });
+    await registrarAuditLog(tx, {
+      tabla: "fletes",
+      registroId: id,
+      accion: "update",
+      campoAntes: { estadoCobro: flete.estadoCobro },
+      campoDespues: { estadoCobro: "cobrado", fechaCobro: fecha },
+      usuarioId,
+    });
+    return actualizado;
+  });
 }

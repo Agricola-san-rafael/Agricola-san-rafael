@@ -8,6 +8,7 @@ import { resumirFletes } from "@/modules/fletes/service";
 import { formatCLP } from "@/modules/shared/money";
 import { formatDateCL } from "@/modules/shared/dates";
 import { BorrarFlete } from "./borrar-flete";
+import { MarcarCobrado } from "./marcar-cobrado";
 
 const TIPO: Record<string, string> = { compra: "Compra", venta: "Venta", tercero: "Tercero" };
 
@@ -46,6 +47,18 @@ export default async function FletesPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <LinkButton href="/fletes/por-cobrar" variant="outline">
+            Por cobrar
+          </LinkButton>
+          <LinkButton href="/fletes/rentabilidad" variant="outline">
+            Rentabilidad
+          </LinkButton>
+          <LinkButton href="/fletes/costos-fijos" variant="outline">
+            Costos fijos
+          </LinkButton>
+          <LinkButton href="/fletes/choferes" variant="outline">
+            Choferes
+          </LinkButton>
           <LinkButton href="/fletes/desde-texto" variant="outline">
             Cargar desde texto o foto
           </LinkButton>
@@ -83,7 +96,8 @@ export default async function FletesPage() {
               <TableHead>Operación</TableHead>
               <TableHead>Recorrido</TableHead>
               <TableHead className="text-right">Costo real</TableHead>
-              <TableHead className="text-right">Cobrado</TableHead>
+              <TableHead className="text-right">Tarifa</TableHead>
+              <TableHead>Cobro</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -104,12 +118,21 @@ export default async function FletesPage() {
                 <TableCell className="text-right">
                   {f.tarifaCobrada === null ? "—" : formatCLP(Number(f.tarifaCobrada))}
                 </TableCell>
+                <TableCell>
+                  {f.tipo !== "tercero" || f.tarifaCobrada === null ? (
+                    <span className="text-muted-foreground">—</span>
+                  ) : f.estadoCobro === "cobrado" ? (
+                    <Badge variant="secondary">cobrado</Badge>
+                  ) : (
+                    <MarcarCobrado id={f.id} />
+                  )}
+                </TableCell>
                 <TableCell className="text-right">{session?.rol === "admin" && <BorrarFlete id={f.id} />}</TableCell>
               </TableRow>
             ))}
             {fletes.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Sin viajes registrados todavía.
                 </TableCell>
               </TableRow>
