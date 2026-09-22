@@ -53,6 +53,7 @@ function navGroups(alertasPendientes: number, esAdmin: boolean): NavGroup[] {
         { href: "/proveedores", label: "Proveedores", iconKey: "proveedores" },
         { href: "/por-cobrar", label: "Por cobrar", iconKey: "porCobrar" },
         { href: "/por-pagar", label: "Por pagar", iconKey: "porPagar" },
+        { href: "/gastos?empresa=agricola", label: "Gastos", iconKey: "gastos" },
         { href: "/configuracion/variedades", label: "Variedades", iconKey: "variedades" },
         { href: "/configuracion/calibres", label: "Calibres", iconKey: "calibres" },
       ],
@@ -63,6 +64,7 @@ function navGroups(alertasPendientes: number, esAdmin: boolean): NavGroup[] {
         { href: "/fletes", label: "Fletes", iconKey: "fletes" },
         { href: "/fletes/clientes", label: "Clientes", iconKey: "clientes" },
         { href: "/fletes/proveedores", label: "Proveedores", iconKey: "proveedores" },
+        { href: "/gastos?empresa=transporte", label: "Gastos", iconKey: "gastos" },
       ],
     },
   ];

@@ -1,17 +1,19 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
+import { Prisma, type EmpresaGasto } from "@/generated/prisma/client";
 import { paginatedResponse, type PageParams } from "@/modules/shared/pagination";
 import { registrarAuditLog } from "@/modules/shared/audit";
 import type { GastoInput } from "./schema";
 
-export async function listarGastos(params: PageParams) {
+export async function listarGastos(params: PageParams, empresa?: EmpresaGasto) {
+  const where = empresa ? { empresa } : {};
   const [data, total] = await Promise.all([
     prisma.gastoOperacional.findMany({
+      where,
       orderBy: { fecha: "desc" },
       skip: params.skip,
       take: params.take,
     }),
-    prisma.gastoOperacional.count(),
+    prisma.gastoOperacional.count({ where }),
   ]);
   return paginatedResponse(data, total, params);
 }

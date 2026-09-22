@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LinkButton } from "@/components/ui/link-button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,10 +13,27 @@ import { listarGastos } from "@/modules/gastos/service";
 import { parsePageParams } from "@/modules/shared/pagination";
 import { formatCLP } from "@/modules/shared/money";
 import { formatDateCL } from "@/modules/shared/dates";
+import type { EmpresaGasto } from "@/generated/prisma/client";
+import { cn } from "@/lib/utils";
 
-export default async function GastosPage() {
+const FILTROS: { value: EmpresaGasto | "todos"; label: string }[] = [
+  { value: "todos", label: "Todos" },
+  { value: "agricola", label: "Agrícola San Rafael" },
+  { value: "transporte", label: "Transportes San Rafael SpA" },
+];
+
+export default async function GastosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ empresa?: string }>;
+}) {
+  const { empresa: empresaParam } = await searchParams;
+  const empresa: EmpresaGasto | undefined =
+    empresaParam === "agricola" || empresaParam === "transporte" ? empresaParam : undefined;
+
   const { data: gastos } = await listarGastos(
-    parsePageParams(new URLSearchParams({ pageSize: "50" }))
+    parsePageParams(new URLSearchParams({ pageSize: "50" })),
+    empresa
   );
 
   return (
@@ -30,11 +48,30 @@ export default async function GastosPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-1 border-b pb-2">
+        {FILTROS.map((f) => {
+          const activo = (empresa ?? "todos") === f.value;
+          return (
+            <Link
+              key={f.value}
+              href={f.value === "todos" ? "/gastos" : `/gastos?empresa=${f.value}`}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm",
+                activo ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50"
+              )}
+            >
+              {f.label}
+            </Link>
+          );
+        })}
+      </div>
+
       <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
+              <TableHead>Empresa</TableHead>
               <TableHead>Categoría</TableHead>
               <TableHead>Descripción</TableHead>
               <TableHead className="text-right">Monto</TableHead>
@@ -45,15 +82,13 @@ export default async function GastosPage() {
             {gastos.map((g) => (
               <TableRow key={g.id}>
                 <TableCell>{formatDateCL(g.fecha)}</TableCell>
-                <TableCell className="capitalize">{g.categoria.replace("_", " ")}</TableCell>
                 <TableCell>
-                  {g.descripcion ?? g.pagadoA ?? "—"}
-                  {g.empresa === "transporte" && (
-                    <Badge variant="secondary" className="ml-2">
-                      transporte
-                    </Badge>
-                  )}
+                  <Badge variant={g.empresa === "transporte" ? "secondary" : "outline"}>
+                    {g.empresa === "transporte" ? "Transporte" : "Agrícola"}
+                  </Badge>
                 </TableCell>
+                <TableCell className="capitalize">{g.categoria.replace("_", " ")}</TableCell>
+                <TableCell>{g.descripcion ?? g.pagadoA ?? "—"}</TableCell>
                 <TableCell className="text-right">{formatCLP(Number(g.monto))}</TableCell>
                 <TableCell>
                   <Badge variant={g.estadoPago === "pagado" ? "default" : "destructive"}>
@@ -64,7 +99,7 @@ export default async function GastosPage() {
             ))}
             {gastos.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   Sin gastos registrados todavía.
                 </TableCell>
               </TableRow>
