@@ -18,6 +18,7 @@ export const fleteSchema = z
     tipo: z.enum(["compra", "venta", "tercero"]),
     compraId: z.string().uuid().optional().or(z.literal("").transform(() => undefined)),
     ventaId: z.string().uuid().optional().or(z.literal("").transform(() => undefined)),
+    clienteId: z.string().uuid().optional().or(z.literal("").transform(() => undefined)),
     terceroNombre: textoOpcional,
     origen: textoOpcional,
     destino: textoOpcional,

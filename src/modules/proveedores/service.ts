@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { EmpresaGasto } from "@/generated/prisma/client";
 import { NotFoundError } from "@/modules/shared/errors";
 import { paginatedResponse, type PageParams } from "@/modules/shared/pagination";
 import type { ProveedorInput, ProveedorUpdateInput } from "./schema";
@@ -9,8 +10,8 @@ interface SaldoProveedorRow {
   saldo_pendiente: string;
 }
 
-export async function listarProveedores(params: PageParams, activo?: boolean) {
-  const where = activo === undefined ? {} : { activo };
+export async function listarProveedores(params: PageParams, empresa: EmpresaGasto, activo?: boolean) {
+  const where = { empresa, ...(activo === undefined ? {} : { activo }) };
   const [data, total] = await Promise.all([
     prisma.proveedor.findMany({
       where,
@@ -37,9 +38,9 @@ export async function obtenerProveedor(id: string) {
   return { ...proveedor, saldoPendiente };
 }
 
-export async function crearProveedor(input: ProveedorInput, creadoPor: string) {
+export async function crearProveedor(input: Omit<ProveedorInput, "empresa">, creadoPor: string, empresa: EmpresaGasto) {
   return prisma.proveedor.create({
-    data: { ...input, createdBy: creadoPor },
+    data: { ...input, empresa, createdBy: creadoPor },
   });
 }
 
@@ -47,4 +48,13 @@ export async function actualizarProveedor(id: string, input: ProveedorUpdateInpu
   const existente = await prisma.proveedor.findUnique({ where: { id } });
   if (!existente) throw new NotFoundError("Proveedor no encontrado");
   return prisma.proveedor.update({ where: { id }, data: input });
+}
+
+/** Gastos operacionales del transporte que coinciden con el nombre de este proveedor
+ * (no hay FK directa desde gastos_operacionales; se cruza por el texto "pagado a"). */
+export async function obtenerGastosProveedor(nombreProveedor: string, empresa: EmpresaGasto) {
+  return prisma.gastoOperacional.findMany({
+    where: { empresa, pagadoA: { equals: nombreProveedor, mode: "insensitive" } },
+    orderBy: { fecha: "desc" },
+  });
 }

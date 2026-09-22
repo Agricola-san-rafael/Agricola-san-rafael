@@ -7,7 +7,7 @@ import { VentaForm } from "../venta-form";
 export default async function NuevaVentaPage() {
   const [session, { data: clientes }, lotes] = await Promise.all([
     getSession(),
-    listarClientes(parsePageParams(new URLSearchParams({ pageSize: "100" })), true),
+    listarClientes(parsePageParams(new URLSearchParams({ pageSize: "100" })), "agricola", true),
     obtenerLotesDisponibles(),
   ]);
 

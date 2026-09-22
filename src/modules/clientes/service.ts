@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { EmpresaGasto } from "@/generated/prisma/client";
 import { NotFoundError } from "@/modules/shared/errors";
 import { paginatedResponse, type PageParams } from "@/modules/shared/pagination";
 import type { ClienteInput, ClienteUpdateInput } from "./schema";
@@ -9,8 +10,8 @@ interface SaldoClienteRow {
   saldo_pendiente: string;
 }
 
-export async function listarClientes(params: PageParams, activo?: boolean) {
-  const where = activo === undefined ? {} : { activo };
+export async function listarClientes(params: PageParams, empresa: EmpresaGasto, activo?: boolean) {
+  const where = { empresa, ...(activo === undefined ? {} : { activo }) };
   const [data, total] = await Promise.all([
     prisma.cliente.findMany({
       where,
@@ -39,8 +40,8 @@ export async function obtenerCliente(id: string) {
   return { ...cliente, saldoPendiente };
 }
 
-export async function crearCliente(input: ClienteInput, creadoPor: string) {
-  return prisma.cliente.create({ data: { ...input, createdBy: creadoPor } });
+export async function crearCliente(input: Omit<ClienteInput, "empresa">, creadoPor: string, empresa: EmpresaGasto) {
+  return prisma.cliente.create({ data: { ...input, empresa, createdBy: creadoPor } });
 }
 
 export async function actualizarCliente(id: string, input: ClienteUpdateInput) {
@@ -85,4 +86,17 @@ export async function obtenerMovimientosCliente(id: string): Promise<MovimientoC
   ];
 
   return movimientos.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+}
+
+/** Fletes de un cliente del transporte: reemplaza el historial de ventas/cobros para esa empresa. */
+export async function obtenerFletesCliente(id: string) {
+  const fletes = await prisma.flete.findMany({
+    where: { clienteId: id },
+    orderBy: { fecha: "desc" },
+  });
+  const totalFacturado = fletes.reduce((s, f) => s + Number(f.totalFacturado ?? f.tarifaCobrada ?? 0), 0);
+  const pendiente = fletes
+    .filter((f) => f.estadoCobro === "pendiente")
+    .reduce((s, f) => s + Number(f.totalFacturado ?? f.tarifaCobrada ?? 0), 0);
+  return { fletes, totalFacturado, pendiente };
 }

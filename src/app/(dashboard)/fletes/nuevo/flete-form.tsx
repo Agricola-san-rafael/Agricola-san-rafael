@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { SelectField } from "@/components/forms/select-field";
 import { todayLocalISODate } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
+
+const OTRO_CLIENTE = "__otro__";
 
 interface Opcion {
   value: string;
@@ -24,12 +27,21 @@ const TIPOS = [
 
 const num = (s: string) => Number(s.replace(/\./g, "").replace(",", ".")) || 0;
 
-export function FleteForm({ compras, ventas }: { compras: Opcion[]; ventas: Opcion[] }) {
+export function FleteForm({
+  compras,
+  ventas,
+  clientesTransporte,
+}: {
+  compras: Opcion[];
+  ventas: Opcion[];
+  clientesTransporte: Opcion[];
+}) {
   const router = useRouter();
   const [enviando, setEnviando] = useState(false);
   const [tipo, setTipo] = useState<"compra" | "venta" | "tercero">("venta");
   const [fecha, setFecha] = useState(todayLocalISODate());
   const [operacionId, setOperacionId] = useState<string | undefined>();
+  const [clienteId, setClienteId] = useState<string | undefined>();
   const [tercero, setTercero] = useState("");
   const [origen, setOrigen] = useState("");
   const [destino, setDestino] = useState("");
@@ -59,6 +71,7 @@ export function FleteForm({ compras, ventas }: { compras: Opcion[]; ventas: Opci
           fecha, tipo,
           compraId: tipo === "compra" ? operacionId : undefined,
           ventaId: tipo === "venta" ? operacionId : undefined,
+          clienteId: tipo === "tercero" && clienteId && clienteId !== OTRO_CLIENTE ? clienteId : undefined,
           terceroNombre: tercero, origen, destino, kilos, vehiculo, km, chofer: nombreChofer, estadoCobro, nFactura,
           totalFacturado: totalFacturado ? num(totalFacturado) : undefined,
           costoCombustible: num(combustible), costoChofer: num(chofer), costoPeajes: num(peajes), costoOtros: num(otros),
@@ -109,7 +122,27 @@ export function FleteForm({ compras, ventas }: { compras: Opcion[]; ventas: Opci
         {tipo === "tercero" && (
           <div className="flex flex-col gap-1 sm:col-span-2">
             <Label>Flete para</Label>
-            <Input value={tercero} onChange={(e) => setTercero(e.target.value)} placeholder="Nombre de la empresa o persona" />
+            <SelectField
+              value={clienteId}
+              onValueChange={(v) => {
+                setClienteId(v);
+                const opcion = clientesTransporte.find((c) => c.value === v);
+                setTercero(opcion ? opcion.label : "");
+              }}
+              options={[...clientesTransporte, { value: OTRO_CLIENTE, label: "Otro (escribir nombre)" }]}
+              placeholder="Elige el cliente"
+            />
+            {(clienteId === OTRO_CLIENTE || (!clienteId && clientesTransporte.length === 0)) && (
+              <Input
+                className="mt-1"
+                value={tercero}
+                onChange={(e) => setTercero(e.target.value)}
+                placeholder="Nombre de la empresa o persona"
+              />
+            )}
+            <Link href="/fletes/clientes/nuevo" className="text-xs text-primary hover:underline">
+              + Crear cliente nuevo del transporte
+            </Link>
           </div>
         )}
 

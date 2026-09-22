@@ -13,9 +13,10 @@ export const clienteSchema = z.object({
     z.number().int().min(0).optional()
   ),
   activo: z.boolean().optional(),
+  empresa: z.enum(["agricola", "transporte"]).default("agricola"),
 });
 
-export const clienteUpdateSchema = clienteSchema.partial();
+export const clienteUpdateSchema = clienteSchema.omit({ empresa: true }).partial();
 
 export type ClienteInput = z.infer<typeof clienteSchema>;
 export type ClienteUpdateInput = z.infer<typeof clienteUpdateSchema>;

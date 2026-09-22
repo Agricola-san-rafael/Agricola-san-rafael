@@ -13,7 +13,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const activoParam = searchParams.get("activo");
     const activo = activoParam === null ? undefined : activoParam === "true";
-    const result = await listarClientes(parsePageParams(searchParams), activo);
+    const empresa = searchParams.get("empresa") === "transporte" ? "transporte" : "agricola";
+    const result = await listarClientes(parsePageParams(searchParams), empresa, activo);
     return NextResponse.json(result);
   } catch (error) {
     return handleApiError(error);
@@ -23,8 +24,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await requireSession();
-    const body = clienteSchema.parse(await request.json());
-    const cliente = await crearCliente(body, session.userId);
+    const { empresa, ...rest } = clienteSchema.parse(await request.json());
+    const cliente = await crearCliente(rest, session.userId, empresa);
     return NextResponse.json(cliente, { status: 201 });
   } catch (error) {
     return handleApiError(error);

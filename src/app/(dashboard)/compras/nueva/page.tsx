@@ -5,7 +5,7 @@ import { CompraForm } from "../compra-form";
 
 export default async function NuevaCompraPage() {
   const [{ data: proveedores }, variedades, calibres] = await Promise.all([
-    listarProveedores(parsePageParams(new URLSearchParams({ pageSize: "100" })), true),
+    listarProveedores(parsePageParams(new URLSearchParams({ pageSize: "100" })), "agricola", true),
     listarVariedades(),
     listarCalibres(),
   ]);

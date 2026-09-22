@@ -47,6 +47,12 @@ export default async function FletesPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <LinkButton href="/fletes/clientes" variant="outline">
+            Clientes
+          </LinkButton>
+          <LinkButton href="/fletes/proveedores" variant="outline">
+            Proveedores
+          </LinkButton>
           <LinkButton href="/fletes/por-cobrar" variant="outline">
             Por cobrar
           </LinkButton>

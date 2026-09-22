@@ -14,9 +14,10 @@ export const proveedorSchema = z.object({
   notas: z.string().optional(),
   activo: z.boolean().optional(),
   facturaConIva: z.boolean().optional(),
+  empresa: z.enum(["agricola", "transporte"]).default("agricola"),
 });
 
-export const proveedorUpdateSchema = proveedorSchema.partial();
+export const proveedorUpdateSchema = proveedorSchema.omit({ empresa: true }).partial();
 
 export type ProveedorInput = z.infer<typeof proveedorSchema>;
 export type ProveedorUpdateInput = z.infer<typeof proveedorUpdateSchema>;

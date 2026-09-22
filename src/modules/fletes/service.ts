@@ -18,6 +18,7 @@ export async function crearFlete(input: FleteInput, creadoPor: string) {
         tipo: input.tipo,
         compraId: input.tipo === "compra" ? input.compraId : undefined,
         ventaId: input.tipo === "venta" ? input.ventaId : undefined,
+        clienteId: input.tipo === "tercero" ? input.clienteId : undefined,
         terceroNombre: input.tipo === "tercero" ? input.terceroNombre : undefined,
         origen: input.origen,
         destino: input.destino,

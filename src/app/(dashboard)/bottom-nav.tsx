@@ -10,10 +10,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ICONOS_NAV, type IconoNav } from "./nav-icons";
+import { ICONOS_NAV } from "./nav-icons";
+import type { NavGroup } from "./layout";
 
 interface BottomNavProps {
-  otrosLinks: { href: string; label: string; iconKey: IconoNav }[];
+  groups: NavGroup[];
 }
 
 const ITEMS_PRINCIPALES = [
@@ -28,7 +29,7 @@ const ITEMS_PRINCIPALES = [
  * compra/venta/gasto en menos de 3 pasos desde cualquier pantalla). Solo
  * visible bajo el breakpoint `md` — en desktop se usa el nav horizontal.
  */
-export function BottomNav({ otrosLinks }: BottomNavProps) {
+export function BottomNav({ groups }: BottomNavProps) {
   const [abierto, setAbierto] = useState(false);
 
   return (
@@ -52,21 +53,33 @@ export function BottomNav({ otrosLinks }: BottomNavProps) {
           <SheetHeader>
             <SheetTitle>Más opciones</SheetTitle>
           </SheetHeader>
-          <div className="flex flex-col gap-1 p-4 pt-0">
-            {otrosLinks.map((link) => {
-              const Icono = ICONOS_NAV[link.iconKey];
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setAbierto(false)}
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
-                >
-                  <Icono className="size-4" />
-                  {link.label}
-                </Link>
-              );
-            })}
+          <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto p-4 pt-0">
+            {groups.map((group) => (
+              <div key={group.label} className="flex flex-col gap-1">
+                <span className="px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
+                  {group.label}
+                </span>
+                {group.items.map((link) => {
+                  const Icono = ICONOS_NAV[link.iconKey];
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setAbierto(false)}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
+                    >
+                      <Icono className="size-4" />
+                      {link.label}
+                      {link.badge !== undefined && (
+                        <span className="ml-auto rounded-full bg-destructive px-1.5 py-0 text-[0.65rem] text-destructive-foreground">
+                          {link.badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </SheetContent>
       </Sheet>

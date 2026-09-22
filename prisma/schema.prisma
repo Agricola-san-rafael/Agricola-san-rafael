@@ -194,6 +194,9 @@ model Proveedor {
   /// Si factura con IVA, el costo de sus lotes se guarda con el 19% sumado
   /// para que el margen refleje la utilidad real.
   facturaConIva   Boolean        @default(false) @map("factura_con_iva")
+  /// A qué empresa pertenece: la agrícola (proveedores de fruta) o el
+  /// transporte (bencinera, seguro, mecánico, etc.) — cada uno con su propia lista.
+  empresa         EmpresaGasto   @default(agricola)
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
   createdBy       String?        @map("created_by")
@@ -201,6 +204,7 @@ model Proveedor {
   compras Compra[]
   pagos   MovimientoPago[]
 
+  @@index([empresa])
   @@map("proveedores")
 }
 
@@ -215,6 +219,9 @@ model Cliente {
   condicionesPago CondicionPago? @map("condiciones_pago")
   plazoPagoDias   Int?           @map("plazo_pago_dias")
   activo          Boolean        @default(true)
+  /// A qué empresa pertenece: la agrícola (compradores de fruta) o el
+  /// transporte (a quién se le hacen los fletes) — cada uno con su propia lista.
+  empresa         EmpresaGasto   @default(agricola)
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
   createdBy       String?        @map("created_by")
@@ -222,7 +229,9 @@ model Cliente {
   ventas     Venta[]
   cobros     MovimientoCobro[]
   prospectos Prospecto[]
+  fletes     Flete[]
 
+  @@index([empresa])
   @@map("clientes")
 }
 
@@ -430,6 +439,10 @@ model Flete {
   compra           Compra?   @relation(fields: [compraId], references: [id], onDelete: SetNull)
   ventaId          String?   @map("venta_id")
   venta            Venta?    @relation(fields: [ventaId], references: [id], onDelete: SetNull)
+  /// Cliente del transporte al que se le hace el flete (tipo "tercero"), si ya
+  /// tiene ficha propia. terceroNombre se mantiene como respaldo/nombre libre.
+  clienteId        String?   @map("cliente_id")
+  cliente          Cliente?  @relation(fields: [clienteId], references: [id], onDelete: SetNull)
   terceroNombre    String?   @map("tercero_nombre")
   origen           String?
   destino          String?
@@ -458,6 +471,7 @@ model Flete {
   @@index([fecha])
   @@index([compraId])
   @@index([ventaId])
+  @@index([clienteId])
   @@map("fletes")
 }
 

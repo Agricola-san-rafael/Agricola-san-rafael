@@ -4,7 +4,7 @@ import { formatCLP } from "@/modules/shared/money";
 import { FleteForm } from "./flete-form";
 
 export default async function NuevoFletePage() {
-  const [compras, ventas] = await Promise.all([
+  const [compras, ventas, clientesTransporte] = await Promise.all([
     prisma.compra.findMany({
       orderBy: { fecha: "desc" },
       take: 60,
@@ -15,6 +15,10 @@ export default async function NuevoFletePage() {
       orderBy: { fecha: "desc" },
       take: 80,
       include: { cliente: { select: { nombre: true } }, calibre: { select: { codigo: true } } },
+    }),
+    prisma.cliente.findMany({
+      where: { empresa: "transporte", activo: true },
+      orderBy: { nombre: "asc" },
     }),
   ]);
 
@@ -36,6 +40,7 @@ export default async function NuevoFletePage() {
           value: v.id,
           label: `${formatDateCL(v.fecha)} · ${v.cliente.nombre} · ${Number(v.kilos)} kg ${v.calibre.codigo} · ${formatCLP(Number(v.total))}`,
         }))}
+        clientesTransporte={clientesTransporte.map((c) => ({ value: c.id, label: c.nombre }))}
       />
     </div>
   );

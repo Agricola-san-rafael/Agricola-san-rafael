@@ -13,16 +13,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { SelectField } from "@/components/forms/select-field";
 import { NumericInput } from "@/components/forms/numeric-input";
 import { proveedorSchema } from "@/modules/proveedores/schema";
-import type { Proveedor } from "@/generated/prisma/client";
+import type { Proveedor, EmpresaGasto } from "@/generated/prisma/client";
 
 type FormInput = z.input<typeof proveedorSchema>;
 type FormOutput = z.output<typeof proveedorSchema>;
 
 interface ProveedorFormProps {
   proveedor?: Proveedor;
+  /** A qué empresa pertenece el proveedor nuevo; en edición no cambia. */
+  empresa?: EmpresaGasto;
+  /** A dónde volver después de guardar (lista de proveedores de la empresa correspondiente). */
+  volverA?: string;
 }
 
-export function ProveedorForm({ proveedor }: ProveedorFormProps) {
+export function ProveedorForm({ proveedor, empresa = "agricola", volverA = "/proveedores" }: ProveedorFormProps) {
   const router = useRouter();
   const {
     register,
@@ -45,7 +49,7 @@ export function ProveedorForm({ proveedor }: ProveedorFormProps) {
           activo: proveedor.activo,
           facturaConIva: proveedor.facturaConIva,
         }
-      : { activo: true },
+      : { activo: true, empresa },
   });
 
   const condicionesPago = watch("condicionesPago");
@@ -66,7 +70,7 @@ export function ProveedorForm({ proveedor }: ProveedorFormProps) {
       return;
     }
     toast.success(proveedor ? "Proveedor actualizado" : "Proveedor creado");
-    router.push("/proveedores");
+    router.push(volverA);
     router.refresh();
   }
 

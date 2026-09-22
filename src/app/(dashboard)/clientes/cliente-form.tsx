@@ -12,16 +12,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { SelectField } from "@/components/forms/select-field";
 import { NumericInput } from "@/components/forms/numeric-input";
 import { clienteSchema } from "@/modules/clientes/schema";
-import type { Cliente } from "@/generated/prisma/client";
+import type { Cliente, EmpresaGasto } from "@/generated/prisma/client";
 
 type FormInput = z.input<typeof clienteSchema>;
 type FormOutput = z.output<typeof clienteSchema>;
 
 interface ClienteFormProps {
   cliente?: Cliente;
+  /** A qué empresa pertenece el cliente nuevo; en edición no cambia. */
+  empresa?: EmpresaGasto;
+  /** A dónde volver después de guardar (lista de clientes de la empresa correspondiente). */
+  volverA?: string;
 }
 
-export function ClienteForm({ cliente }: ClienteFormProps) {
+export function ClienteForm({ cliente, empresa = "agricola", volverA = "/clientes" }: ClienteFormProps) {
   const router = useRouter();
   const {
     register,
@@ -43,7 +47,7 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
           plazoPagoDias: cliente.plazoPagoDias ?? undefined,
           activo: cliente.activo,
         }
-      : { activo: true },
+      : { activo: true, empresa },
   });
 
   const condicionesPago = watch("condicionesPago");
@@ -63,7 +67,7 @@ export function ClienteForm({ cliente }: ClienteFormProps) {
       return;
     }
     toast.success(cliente ? "Cliente actualizado" : "Cliente creado");
-    router.push("/clientes");
+    router.push(volverA);
     router.refresh();
   }
 
