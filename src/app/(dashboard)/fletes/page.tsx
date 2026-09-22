@@ -46,6 +46,9 @@ export default async function FletesPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <LinkButton href="/fletes/desde-texto" variant="outline">
+            Cargar desde texto o foto
+          </LinkButton>
           <LinkButton href="/fletes/prestamo" variant="outline">
             Préstamo entre empresas
           </LinkButton>
