@@ -5,17 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCLP } from "@/modules/shared/money";
 import { formatDateCL } from "@/modules/shared/dates";
-import { obtenerParametrosTransporte } from "@/modules/fletes/parametros";
 import { FormularioCostoFijo, InterruptorCostoFijo } from "./formulario-costo-fijo";
-import { FormularioParametros } from "./formulario-parametros";
 
 export default async function CostosFijosPage() {
   const session = await getSession();
   if (session?.rol !== "admin") redirect("/dashboard");
-  const [costos, parametros] = await Promise.all([
-    prisma.costoFijoRecurrente.findMany({ orderBy: [{ empresa: "asc" }, { diaDelMes: "asc" }] }),
-    obtenerParametrosTransporte(),
-  ]);
+  const costos = await prisma.costoFijoRecurrente.findMany({ orderBy: [{ empresa: "asc" }, { diaDelMes: "asc" }] });
   const total = (empresa: string) => costos.filter((c) => c.activo && c.empresa === empresa).reduce((a, c) => a + Number(c.monto), 0);
 
   return (
@@ -30,8 +25,6 @@ export default async function CostosFijosPage() {
           Total al mes: transporte {formatCLP(total("transporte"))} · agrícola {formatCLP(total("agricola"))}
         </p>
       </div>
-
-      <FormularioParametros combustiblePorKm={parametros.combustiblePorKm} tarifaPorKm={parametros.tarifaPorKm} />
 
       <FormularioCostoFijo />
 

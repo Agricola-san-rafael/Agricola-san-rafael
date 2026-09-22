@@ -43,11 +43,6 @@ export function FormularioParametros({
 
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="text-lg font-medium">Tarifas por km</h2>
-      <p className="text-sm text-muted-foreground">
-        Al registrar un viaje con los km recorridos, se sugiere el costo de combustible y la tarifa a cobrar
-        multiplicando por estos valores — se pueden editar en cada viaje si el real fue distinto.
-      </p>
       <div className="grid max-w-md gap-3 rounded-md border p-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label>Combustible ($/km)</Label>

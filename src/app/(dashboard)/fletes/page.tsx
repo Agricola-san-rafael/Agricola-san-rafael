@@ -62,6 +62,9 @@ export default async function FletesPage() {
           <LinkButton href="/fletes/costos-fijos" variant="outline">
             Costos fijos
           </LinkButton>
+          <LinkButton href="/fletes/tarifas" variant="outline">
+            Tarifas por km
+          </LinkButton>
           <LinkButton href="/fletes/choferes" variant="outline">
             Choferes
           </LinkButton>
