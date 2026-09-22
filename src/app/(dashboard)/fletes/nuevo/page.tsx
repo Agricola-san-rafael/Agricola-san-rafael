@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { formatDateCL } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
+import { obtenerParametrosTransporte } from "@/modules/fletes/parametros";
 import { FleteForm } from "./flete-form";
 
 export default async function NuevoFletePage({
@@ -11,7 +12,7 @@ export default async function NuevoFletePage({
   const { tipo, volver } = await searchParams;
   const tipoInicial = tipo === "compra" || tipo === "venta" || tipo === "tercero" ? tipo : "venta";
   const volverA = volver === "ventas" ? "/ventas?empresa=transporte" : "/fletes";
-  const [compras, ventas, clientesTransporte] = await Promise.all([
+  const [compras, ventas, clientesTransporte, parametros] = await Promise.all([
     prisma.compra.findMany({
       orderBy: { fecha: "desc" },
       take: 60,
@@ -27,6 +28,7 @@ export default async function NuevoFletePage({
       where: { empresa: "transporte", activo: true },
       orderBy: { nombre: "asc" },
     }),
+    obtenerParametrosTransporte(),
   ]);
 
   return (
@@ -52,6 +54,7 @@ export default async function NuevoFletePage({
           label: `${formatDateCL(v.fecha)} · ${v.cliente.nombre} · ${Number(v.kilos)} kg ${v.calibre.codigo} · ${formatCLP(Number(v.total))}`,
         }))}
         clientesTransporte={clientesTransporte.map((c) => ({ value: c.id, label: c.nombre }))}
+        parametros={parametros}
       />
     </div>
   );

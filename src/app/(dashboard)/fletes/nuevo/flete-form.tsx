@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SelectField } from "@/components/forms/select-field";
 import { todayLocalISODate } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
+import { calcularSugeridoPorKm } from "@/modules/fletes/consumo";
 
 const OTRO_CLIENTE = "__otro__";
 
@@ -33,12 +34,14 @@ export function FleteForm({
   clientesTransporte,
   tipoInicial = "venta",
   volverA = "/fletes",
+  parametros = { combustiblePorKm: 0, tarifaPorKm: 0 },
 }: {
   compras: Opcion[];
   ventas: Opcion[];
   clientesTransporte: Opcion[];
   tipoInicial?: "compra" | "venta" | "tercero";
   volverA?: string;
+  parametros?: { combustiblePorKm: number; tarifaPorKm: number };
 }) {
   const router = useRouter();
   const [enviando, setEnviando] = useState(false);
@@ -64,6 +67,9 @@ export function FleteForm({
   const [observaciones, setObservaciones] = useState("");
 
   const costoTotal = num(combustible) + num(chofer) + num(peajes) + num(otros);
+  const kmNum = num(km);
+  const combustibleSugerido = calcularSugeridoPorKm(kmNum || undefined, parametros.combustiblePorKm);
+  const tarifaSugerida = calcularSugeridoPorKm(kmNum || undefined, parametros.tarifaPorKm);
 
   async function guardar() {
     setEnviando(true);
@@ -182,6 +188,15 @@ export function FleteForm({
           <div className="flex flex-col gap-1">
             <Label>Combustible</Label>
             <Input inputMode="decimal" value={combustible} onChange={(e) => setCombustible(e.target.value)} />
+            {combustibleSugerido > 0 && (
+              <button
+                type="button"
+                onClick={() => setCombustible(String(combustibleSugerido))}
+                className="w-fit text-left text-xs text-primary hover:underline"
+              >
+                Sugerido por km: {formatCLP(combustibleSugerido)} (usar)
+              </button>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <Label>Chofer</Label>
@@ -202,6 +217,15 @@ export function FleteForm({
       <div className="flex flex-col gap-1">
         <Label>{tipo === "tercero" ? "Tarifa cobrada al tercero" : "Tarifa que cobra el transporte a la agrícola (opcional)"}</Label>
         <Input inputMode="decimal" value={tarifa} onChange={(e) => setTarifa(e.target.value)} />
+        {tarifaSugerida > 0 && (
+          <button
+            type="button"
+            onClick={() => setTarifa(String(tarifaSugerida))}
+            className="w-fit text-left text-xs text-primary hover:underline"
+          >
+            Sugerido por km: {formatCLP(tarifaSugerida)} (usar)
+          </button>
+        )}
         {tipo !== "tercero" && (
           <p className="text-xs text-muted-foreground">
             Si la dejas vacía, a la operación se le suma el costo real del viaje. Si la ingresas, se le suma la tarifa.

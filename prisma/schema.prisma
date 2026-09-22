@@ -522,6 +522,18 @@ model CostoFijoRecurrente {
   @@map("costos_fijos_recurrentes")
 }
 
+/// Tarifas por km del transporte (fila única, id fijo "default"): para sugerir
+/// el costo de combustible y la tarifa a cobrar según los km de cada viaje.
+model ParametroTransporte {
+  id               String   @id
+  combustiblePorKm Decimal  @default(0) @map("combustible_por_km") @db.Decimal(10, 2)
+  tarifaPorKm      Decimal  @default(0) @map("tarifa_por_km") @db.Decimal(10, 2)
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  updatedById      String?  @map("updated_by")
+
+  @@map("parametros_transporte")
+}
+
 /// Cuenta con cada chofer: monto positivo = se le debe (sueldo, reembolso); negativo = se le pagó.
 model MovimientoChofer {
   id        String   @id @default(uuid())
