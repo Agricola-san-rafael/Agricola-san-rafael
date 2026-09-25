@@ -18,6 +18,8 @@ import { todayLocalISODate, formatDateCL } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
 import { useOfflineDraft, reintentarAlReconectar } from "@/hooks/useOfflineDraft";
 import { compraSchema } from "@/modules/compras/schema";
+import { calibreSchema } from "@/modules/catalogos/schema";
+import { sugerirEntidad } from "@/modules/shared/sugerir-entidad";
 import type { FacturaExtraida } from "@/modules/compras/extraer-factura";
 import type { CompraDuplicada } from "@/modules/compras/service";
 import type { Calibre, Proveedor, Variedad } from "@/generated/prisma/client";
@@ -28,10 +30,6 @@ function normalizar(texto: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "");
-}
-
-function normalizarRut(rut: string): string {
-  return rut.trim().toUpperCase().replace(/[.\s]/g, "");
 }
 
 type FormInput = z.input<typeof compraSchema>;
@@ -64,6 +62,10 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
   const [facturaExtraida, setFacturaExtraida] = useState<FacturaExtraida | null>(null);
   const [facturasDuplicadas, setFacturasDuplicadas] = useState<CompraDuplicada[]>([]);
   const [registrandoLote, setRegistrandoLote] = useState(false);
+  const [calibresLocal, setCalibresLocal] = useState<Calibre[]>(calibres);
+  const [calibreNuevoCodigo, setCalibreNuevoCodigo] = useState("");
+  const [mostrarCrearCalibre, setMostrarCrearCalibre] = useState(false);
+  const [creandoCalibre, setCreandoCalibre] = useState(false);
 
   function aplicarDatosFactura(factura: FacturaExtraida) {
     if (factura.fecha) setValue("fecha", factura.fecha);
@@ -72,15 +74,11 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
     if (factura.iva !== null) setValue("iva", factura.iva);
 
     if (factura.proveedorRut || factura.proveedorNombre) {
-      const porRut = factura.proveedorRut
-        ? proveedores.find((p) => p.rut && normalizarRut(p.rut) === normalizarRut(factura.proveedorRut!))
-        : undefined;
-      const encontrado =
-        porRut ??
-        (factura.proveedorNombre
-          ? proveedores.find((p) => normalizar(p.nombre) === normalizar(factura.proveedorNombre!))
-          : undefined);
-      if (encontrado) setValue("proveedorId", encontrado.id);
+      const encontradoId = sugerirEntidad(proveedores, {
+        nombre: factura.proveedorNombre,
+        rut: factura.proveedorRut,
+      });
+      if (encontradoId) setValue("proveedorId", encontradoId);
       else toast.info(`No encontré al proveedor "${factura.proveedorNombre}" en la lista — selecciónalo a mano`);
     }
   }
@@ -90,7 +88,7 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
   ): { variedadId: string; calibreId: string } | null {
     const variedadEncontrada = variedades.find((v) => normalizar(v.nombre) === normalizar(linea.variedad));
     if (!variedadEncontrada) return null;
-    const calibreEncontrado = calibres.find(
+    const calibreEncontrado = calibresLocal.find(
       (c) =>
         normalizar(c.codigo) === normalizar(linea.calibre) &&
         (!c.variedadId || c.variedadId === variedadEncontrada.id)
@@ -104,17 +102,55 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
     if (resuelto) {
       setValue("variedadId", resuelto.variedadId);
       setValue("calibreId", resuelto.calibreId);
+      setCalibreNuevoCodigo("");
+      setMostrarCrearCalibre(false);
     } else {
       const variedadEncontrada = variedades.find((v) => normalizar(v.nombre) === normalizar(linea.variedad));
       if (!variedadEncontrada) {
         toast.info(`No encontré la variedad "${linea.variedad}" — selecciónala a mano`);
       } else {
         setValue("variedadId", variedadEncontrada.id);
-        toast.info(`No encontré el calibre "${linea.calibre}" — selecciónalo a mano`);
+        toast.info(`No encontré el calibre "${linea.calibre}" — puedes crearlo aquí mismo`);
+        setCalibreNuevoCodigo(linea.calibre);
+        setMostrarCrearCalibre(true);
       }
     }
     setValue("kilos", linea.kilos);
     setValue("precioKg", linea.precioKg);
+  }
+
+  async function crearCalibreInline() {
+    const codigo = calibreNuevoCodigo.trim();
+    const variedadActual = form.getValues("variedadId");
+    if (!codigo || !variedadActual) {
+      toast.error("Elige la variedad y escribe el código del calibre nuevo");
+      return;
+    }
+    const parsed = calibreSchema.safeParse({ codigo, variedadId: variedadActual, orden: 0 });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Código inválido");
+      return;
+    }
+    setCreandoCalibre(true);
+    try {
+      const res = await fetch("/api/v1/calibres", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "No se pudo crear el calibre");
+        return;
+      }
+      setCalibresLocal((prev) => [...prev, data]);
+      setValue("calibreId", data.id);
+      setCalibreNuevoCodigo("");
+      setMostrarCrearCalibre(false);
+      toast.success(`Calibre "${data.codigo}" creado y seleccionado`);
+    } finally {
+      setCreandoCalibre(false);
+    }
   }
 
   async function registrarTodasLasLineas() {
@@ -127,30 +163,37 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
 
     const base = form.getValues();
     const sinCalibre: string[] = [];
-    const payloads = facturaExtraida.lineas
-      .map((linea, i) => {
+    const resueltas = facturaExtraida.lineas
+      .map((linea) => {
         const resuelto = resolverVariedadCalibre(linea);
         if (!resuelto) {
           sinCalibre.push(`${linea.variedad} ${linea.calibre} (${linea.kilos} kg)`);
           return null;
         }
-        return {
-          fecha: base.fecha,
-          proveedorId: proveedorActual,
-          variedadId: resuelto.variedadId,
-          calibreId: resuelto.calibreId,
-          kilos: linea.kilos,
-          precioKg: linea.precioKg,
-          formaPago: base.formaPago,
-          estadoPago: base.estadoPago,
-          nFactura: base.nFactura,
-          // El neto/IVA es del total de la factura, no por línea — se deja
-          // solo en la primera para no repetir el mismo monto N veces.
-          neto: i === 0 ? base.neto : undefined,
-          iva: i === 0 ? base.iva : undefined,
-        };
+        return { linea, resuelto, subtotal: linea.kilos * linea.precioKg };
       })
-      .filter((p): p is NonNullable<typeof p> => p !== null);
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    // El neto/IVA que trae la factura es del total, no por línea — se
+    // reparte a prorrata del subtotal de cada línea (en vez de cargárselo
+    // completo a la primera) para que el detalle de cada lote quede fiel.
+    const sumaSubtotales = resueltas.reduce((s, r) => s + r.subtotal, 0);
+    const payloads = resueltas.map(({ linea, resuelto, subtotal }) => {
+      const proporcion = sumaSubtotales > 0 ? subtotal / sumaSubtotales : 0;
+      return {
+        fecha: base.fecha,
+        proveedorId: proveedorActual,
+        variedadId: resuelto.variedadId,
+        calibreId: resuelto.calibreId,
+        kilos: linea.kilos,
+        precioKg: linea.precioKg,
+        formaPago: base.formaPago,
+        estadoPago: base.estadoPago,
+        nFactura: base.nFactura,
+        neto: base.neto != null && base.neto !== "" ? Math.round(Number(base.neto) * proporcion) : undefined,
+        iva: base.iva != null && base.iva !== "" ? Math.round(Number(base.iva) * proporcion) : undefined,
+      };
+    });
 
     if (sinCalibre.length > 0) {
       toast.error(`No encontré variedad/calibre para: ${sinCalibre.join(", ")} — carga esas a mano`);
@@ -327,13 +370,49 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
         <SelectField
           value={calibreId}
           onValueChange={(value) => setValue("calibreId", value ?? "")}
-          options={calibres
+          options={calibresLocal
             .filter((c) => !c.variedadId || c.variedadId === variedadId)
             .map((c) => ({ value: c.id, label: c.codigo }))}
           placeholder="Selecciona un calibre"
         />
         {errors.calibreId && (
           <p className="text-sm text-destructive">{errors.calibreId.message}</p>
+        )}
+        {!mostrarCrearCalibre && (
+          <button
+            type="button"
+            className="w-fit text-xs text-primary hover:underline"
+            onClick={() => setMostrarCrearCalibre(true)}
+          >
+            + Crear calibre nuevo
+          </button>
+        )}
+        {mostrarCrearCalibre && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+            <Input
+              value={calibreNuevoCodigo}
+              onChange={(e) => setCalibreNuevoCodigo(e.target.value)}
+              placeholder="Código, ej. Chico"
+              className="w-40"
+            />
+            <Button type="button" size="sm" disabled={creandoCalibre} onClick={crearCalibreInline}>
+              {creandoCalibre ? "Creando..." : "Crear y usar"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setMostrarCrearCalibre(false);
+                setCalibreNuevoCodigo("");
+              }}
+            >
+              Cancelar
+            </Button>
+            {!variedadId && (
+              <p className="w-full text-xs text-muted-foreground">Elige primero la variedad de arriba.</p>
+            )}
+          </div>
         )}
       </div>
 

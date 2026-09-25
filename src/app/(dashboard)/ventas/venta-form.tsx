@@ -19,6 +19,7 @@ import { todayLocalISODate } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
 import { useOfflineDraft, reintentarAlReconectar } from "@/hooks/useOfflineDraft";
 import { ventaSchema } from "@/modules/ventas/schema";
+import { sugerirEntidad } from "@/modules/shared/sugerir-entidad";
 import type { VentaExtraida } from "@/modules/ventas/extraer-venta";
 import type { obtenerLotesDisponibles } from "@/modules/inventario/service";
 import type { Cliente } from "@/generated/prisma/client";
@@ -29,10 +30,6 @@ function normalizar(texto: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "");
-}
-
-function normalizarRut(rut: string): string {
-  return rut.trim().toUpperCase().replace(/[.\s]/g, "");
 }
 
 type FormInput = z.input<typeof ventaSchema>;
@@ -77,15 +74,8 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
     if (venta.nDocumento) setValue("nDocumento", venta.nDocumento);
 
     if (venta.clienteRut || venta.clienteNombre) {
-      const porRut = venta.clienteRut
-        ? clientes.find((c) => c.rut && normalizarRut(c.rut) === normalizarRut(venta.clienteRut!))
-        : undefined;
-      const encontrado =
-        porRut ??
-        (venta.clienteNombre
-          ? clientes.find((c) => normalizar(c.nombre) === normalizar(venta.clienteNombre!))
-          : undefined);
-      if (encontrado) setValue("clienteId", encontrado.id);
+      const encontradoId = sugerirEntidad(clientes, { nombre: venta.clienteNombre, rut: venta.clienteRut });
+      if (encontradoId) setValue("clienteId", encontradoId);
       else toast.info(`No encontré al cliente "${venta.clienteNombre}" en la lista — selecciónalo a mano`);
     }
   }
