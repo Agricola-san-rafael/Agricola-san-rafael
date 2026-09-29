@@ -10,24 +10,31 @@ import {
 import { obtenerFlujoCaja } from "@/modules/flujo-caja/service";
 import { formatCLP } from "@/modules/shared/money";
 import { formatDateCL } from "@/modules/shared/dates";
+import { getSession } from "@/lib/auth";
+import { AjustarCajaDialog } from "./ajustar-caja-dialog";
 
-const TIPO_VARIANT: Record<string, "default" | "destructive"> = {
+const TIPO_VARIANT: Record<string, "default" | "destructive" | "secondary"> = {
   cobro: "default",
   pago: "destructive",
   gasto: "destructive",
+  ajuste: "secondary",
 };
 
 export default async function FlujoCajaPage() {
-  const movimientos = await obtenerFlujoCaja();
+  const [movimientos, session] = await Promise.all([obtenerFlujoCaja(), getSession()]);
   const saldoFinal = movimientos.at(-1)?.saldoCorrido ?? 0;
+  const esAdmin = session?.rol === "admin";
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Flujo de caja</h1>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">Saldo actual</p>
-          <p className="text-xl font-semibold">{formatCLP(saldoFinal)}</p>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Saldo actual</p>
+            <p className="text-xl font-semibold">{formatCLP(saldoFinal)}</p>
+          </div>
+          {esAdmin && <AjustarCajaDialog />}
         </div>
       </div>
 

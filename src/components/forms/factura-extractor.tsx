@@ -3,16 +3,27 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import type { FacturaExtraida } from "@/modules/compras/extraer-factura";
 
 interface FacturaExtractorProps {
   onExtraido: (factura: FacturaExtraida) => void;
 }
 
-/** Sube una foto o PDF de factura y la envía a leer automáticamente vía IA. */
+/** Lee una compra desde una foto/PDF de factura, o desde un mensaje de texto libre, vía IA. */
 export function FacturaExtractor({ onExtraido }: FacturaExtractorProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [texto, setTexto] = useState("");
   const [leyendo, setLeyendo] = useState(false);
+
+  function avisarResultado(data: FacturaExtraida) {
+    onExtraido(data);
+    toast.success(
+      data.lineas?.length
+        ? `Factura leída: ${data.lineas.length} línea(s) detectada(s)`
+        : "No se detectaron líneas de productos — completa el formulario a mano"
+    );
+  }
 
   async function handleFile(file: File) {
     setLeyendo(true);
@@ -25,14 +36,35 @@ export function FacturaExtractor({ onExtraido }: FacturaExtractorProps) {
         toast.error(data.error ?? "No se pudo leer la factura");
         return;
       }
-      onExtraido(data as FacturaExtraida);
-      toast.success(
-        data.lineas?.length
-          ? `Factura leída: ${data.lineas.length} línea(s) detectada(s)`
-          : "Factura leída, pero no se detectaron líneas de productos — completa el formulario a mano"
-      );
+      avisarResultado(data as FacturaExtraida);
     } catch {
       toast.error("No se pudo leer la factura");
+    } finally {
+      setLeyendo(false);
+    }
+  }
+
+  async function handleTexto() {
+    if (!texto.trim()) {
+      toast.error("Escribe o pega el mensaje de la compra");
+      return;
+    }
+    setLeyendo(true);
+    try {
+      const res = await fetch("/api/v1/compras/extraer-factura", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texto }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "No se pudo leer la compra");
+        return;
+      }
+      avisarResultado(data as FacturaExtraida);
+      setTexto("");
+    } catch {
+      toast.error("No se pudo leer la compra");
     } finally {
       setLeyendo(false);
     }
@@ -59,11 +91,21 @@ export function FacturaExtractor({ onExtraido }: FacturaExtractorProps) {
         onClick={() => inputRef.current?.click()}
         className="w-fit"
       >
-        {leyendo ? "Leyendo factura..." : "Cargar foto o PDF de factura"}
+        {leyendo ? "Leyendo..." : "Cargar foto o PDF de factura"}
       </Button>
-      <p className="text-xs text-muted-foreground">
-        Sube la factura y la app va a intentar completar los datos por ti. Siempre revisa antes de guardar.
-      </p>
+
+      <p className="text-xs text-muted-foreground">O pega el mensaje donde describes la compra:</p>
+      <Textarea
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        placeholder='Ej: "Betta 150x2100 tercera 50x1800 descarte"'
+        rows={2}
+      />
+      <Button type="button" variant="outline" size="sm" disabled={leyendo} onClick={handleTexto} className="w-fit">
+        {leyendo ? "Leyendo..." : "Leer texto"}
+      </Button>
+
+      <p className="text-xs text-muted-foreground">La app va a intentar completar los datos. Siempre revisa antes de guardar.</p>
     </div>
   );
 }

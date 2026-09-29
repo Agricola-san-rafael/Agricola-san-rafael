@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -10,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SelectField } from "@/components/forms/select-field";
 import { NumericInput } from "@/components/forms/numeric-input";
 import { proveedorSchema } from "@/modules/proveedores/schema";
+import { sugerirEntidad, type EntidadCandidata } from "@/modules/shared/sugerir-entidad";
 import type { Proveedor, EmpresaGasto } from "@/generated/prisma/client";
 
 type FormInput = z.input<typeof proveedorSchema>;
@@ -24,9 +27,16 @@ interface ProveedorFormProps {
   empresa?: EmpresaGasto;
   /** A dónde volver después de guardar (lista de proveedores de la empresa correspondiente). */
   volverA?: string;
+  /** Proveedores ya registrados de esta empresa, para avisar si el nuevo se parece a uno existente. */
+  proveedoresExistentes?: EntidadCandidata[];
 }
 
-export function ProveedorForm({ proveedor, empresa = "agricola", volverA = "/proveedores" }: ProveedorFormProps) {
+export function ProveedorForm({
+  proveedor,
+  empresa = "agricola",
+  volverA = "/proveedores",
+  proveedoresExistentes = [],
+}: ProveedorFormProps) {
   const router = useRouter();
   const {
     register,
@@ -55,6 +65,13 @@ export function ProveedorForm({ proveedor, empresa = "agricola", volverA = "/pro
   const condicionesPago = watch("condicionesPago");
   const activo = watch("activo") ?? true;
   const facturaConIva = watch("facturaConIva") ?? false;
+  const nombre = watch("nombre");
+  const rut = watch("rut");
+  const duplicadoId =
+    !proveedor && proveedoresExistentes.length > 0 && (nombre?.trim().length ?? 0) >= 3
+      ? sugerirEntidad(proveedoresExistentes, { nombre: nombre ?? null, rut: rut ?? null })
+      : null;
+  const duplicado = duplicadoId ? proveedoresExistentes.find((p) => p.id === duplicadoId) : undefined;
 
   async function onSubmit(values: FormOutput) {
     const url = proveedor ? `/api/v1/proveedores/${proveedor.id}` : "/api/v1/proveedores";
@@ -86,6 +103,19 @@ export function ProveedorForm({ proveedor, empresa = "agricola", volverA = "/pro
         <Label htmlFor="rut">RUT</Label>
         <Input id="rut" {...register("rut")} />
       </div>
+
+      {duplicado && (
+        <Alert>
+          <AlertTitle>Ya existe un proveedor parecido</AlertTitle>
+          <AlertDescription>
+            <Link href={`${volverA}/${duplicado.id}`} target="_blank" className="underline">
+              {duplicado.nombre}
+            </Link>
+            {duplicado.rut ? ` (RUT ${duplicado.rut})` : ""} ya está registrado. Revisa que no sea el mismo antes de
+            crear uno nuevo.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="contacto">Contacto</Label>

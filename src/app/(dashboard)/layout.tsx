@@ -80,14 +80,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="flex min-h-screen flex-col">
       <SessionRefresher />
-      <header className="flex items-center justify-between border-b px-4 py-3">
+      <header className="flex items-center justify-between border-b px-4 py-3 print:hidden">
         <div>
           <p className="text-sm font-medium">{session.nombre}</p>
           <p className="text-xs text-muted-foreground">{session.rol}</p>
         </div>
         <LogoutButton />
       </header>
-      <nav className="hidden items-center gap-1 border-b bg-muted/30 px-4 py-2 md:flex">
+      <nav className="hidden items-center gap-1 border-b bg-muted/30 px-4 py-2 md:flex print:hidden">
         {NAV_GROUPS.map((group) => (
           <NavGroupMenu key={group.label} group={group} />
         ))}

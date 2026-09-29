@@ -84,7 +84,7 @@ export default async function ReportesPage() {
           <CardContent>
             <p className="text-xl font-semibold">{formatCLP(kpis.capitalDeTrabajo)}</p>
             <p className="text-xs text-muted-foreground">
-              stock valorizado: {formatCLP(kpis.stockValorizado)}
+              stock: {formatCLP(kpis.stockValorizado)} · caja: {formatCLP(kpis.saldoCaja)}
             </p>
           </CardContent>
         </Card>

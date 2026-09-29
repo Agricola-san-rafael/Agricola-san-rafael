@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -35,6 +36,7 @@ export default async function LotesPage() {
               <TableHead className="text-right">Iniciales</TableHead>
               <TableHead className="text-right">Disponibles</TableHead>
               <TableHead className="text-right">Costo/kg</TableHead>
+              <TableHead>QR</TableHead>
               {esAdmin && <TableHead className="text-right">Acciones</TableHead>}
             </TableRow>
           </TableHeader>
@@ -50,6 +52,11 @@ export default async function LotesPage() {
                 <TableCell className="text-right">{Number(l.kilosIniciales)} kg</TableCell>
                 <TableCell className="text-right">{Number(l.kilosDisponibles)} kg</TableCell>
                 <TableCell className="text-right">{formatCLP(Number(l.costoKg))}</TableCell>
+                <TableCell>
+                  <Link href={`/inventario/lotes/${l.id}/qr`} className="text-primary hover:underline">
+                    Ver QR
+                  </Link>
+                </TableCell>
                 {esAdmin && (
                   <TableCell className="text-right">
                     <AjustarStockDialog
@@ -63,7 +70,7 @@ export default async function LotesPage() {
             ))}
             {lotes.length === 0 && (
               <TableRow>
-                <TableCell colSpan={esAdmin ? 8 : 7} className="text-center text-muted-foreground">
+                <TableCell colSpan={esAdmin ? 9 : 8} className="text-center text-muted-foreground">
                   Sin lotes disponibles.
                 </TableCell>
               </TableRow>

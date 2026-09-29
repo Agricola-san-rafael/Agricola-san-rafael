@@ -22,9 +22,9 @@ const facturaSchema = z.object({
 
 export type FacturaExtraida = z.infer<typeof facturaSchema>;
 
-const PROMPT = `Eres un asistente que extrae datos de facturas o boletas de compra de palta (avocado) para un negocio agrícola chileno.
+const PROMPT = `Eres un asistente que extrae datos de facturas o boletas de compra de palta (avocado) para un negocio agrícola chileno. La entrada puede ser una factura/boleta (imagen o PDF), o un mensaje de texto informal escrito por el dueño del negocio describiendo una compra (ej. "Betta 150x2100 tercera 50x1800 descarte" significa 150 kg de Tercera a $2.100/kg y 50 kg de Descarte a $1.800/kg, comprados a Betta).
 
-Analiza el documento adjunto y responde ÚNICAMENTE con un objeto JSON (sin texto adicional, sin markdown, sin \`\`\`) con esta forma exacta:
+Analiza la entrada y responde ÚNICAMENTE con un objeto JSON (sin texto adicional, sin markdown, sin \`\`\`) con esta forma exacta:
 
 {
   "proveedorNombre": string o null (nombre del proveedor/vendedor que emite el documento),
@@ -41,10 +41,12 @@ Analiza el documento adjunto y responde ÚNICAMENTE con un objeto JSON (sin text
 Notas importantes:
 - Las variedades comunes son: Hass, Fuerte, Edranol, Gwen.
 - Los calibres pueden ser números (14, 16, 18, 20, 22, 24, 28, 32, 36, 40, 48, 60, 96, etc.) o categorías de calidad (Primera, Primera Extra, Segunda, Tercera, Cuarta, Quinta, Descarte, Revuelta, Sin Calibrar, Etiolada, COM A, COM B, COM C, Pre Calibre).
-- Si el documento tiene varias líneas de productos (distintos calibres), inclúyelas todas en el arreglo "lineas".
-- Si algún dato no aparece en el documento, usa null (para campos individuales) o un arreglo vacío (para "lineas").
-- precioKg debe ser el precio unitario por kilo, no el total de la línea — si el documento solo da el total de la línea, divide por los kilos.
-- No inventes datos que no estén en el documento.`;
+- Si hay varias líneas de productos (distintos calibres), inclúyelas todas en el arreglo "lineas".
+- Si algún dato no aparece, usa null (para campos individuales) o un arreglo vacío (para "lineas").
+- precioKg debe ser el precio unitario por kilo, no el total de la línea — si solo dan el total, divide por los kilos.
+- En texto informal, un formato como "150x2100 tercera" significa 150 kilos a $2.100 por kilo, calibre Tercera.
+- El neto y el IVA solo van desglosados si es una factura formal — en un mensaje de texto informal, dejálos en null.
+- No inventes datos que no estén en el texto o documento.`;
 
 function detectarMediaType(filename: string, contentType: string): string {
   if (contentType && contentType !== "application/octet-stream") return contentType;
@@ -56,44 +58,8 @@ function detectarMediaType(filename: string, contentType: string): string {
   return "image/jpeg";
 }
 
-export async function extraerFactura(
-  buffer: Buffer,
-  filename: string,
-  contentType: string
-): Promise<FacturaExtraida> {
-  if (!env.ANTHROPIC_API_KEY) {
-    throw new ValidationError("La extracción automática de facturas no está configurada (falta ANTHROPIC_API_KEY)");
-  }
-
-  const mediaType = detectarMediaType(filename, contentType);
-  const data = buffer.toString("base64");
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-
-  const documentBlock =
-    mediaType === "application/pdf"
-      ? ({ type: "document", source: { type: "base64", media_type: "application/pdf", data } } as const)
-      : ({
-          type: "image",
-          source: { type: "base64", media_type: mediaType as "image/jpeg" | "image/png" | "image/webp", data },
-        } as const);
-
-  const respuesta = await client.messages.create({
-    model: "claude-sonnet-5",
-    max_tokens: 2048,
-    messages: [
-      {
-        role: "user",
-        content: [documentBlock, { type: "text", text: PROMPT }],
-      },
-    ],
-  });
-
-  const bloqueTexto = respuesta.content.find((b) => b.type === "text");
-  if (!bloqueTexto || bloqueTexto.type !== "text") {
-    throw new ValidationError("No se pudo leer la respuesta del modelo");
-  }
-
-  const textoLimpio = bloqueTexto.text
+function parsearRespuesta(texto: string): FacturaExtraida {
+  const textoLimpio = texto
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "");
@@ -110,4 +76,47 @@ export async function extraerFactura(
     throw new ValidationError("La factura no se pudo interpretar (formato inesperado)");
   }
   return parseado.data;
+}
+
+async function pedirExtraccion(content: Anthropic.Messages.ContentBlockParam[]): Promise<FacturaExtraida> {
+  if (!env.ANTHROPIC_API_KEY) {
+    throw new ValidationError("La extracción automática de facturas no está configurada (falta ANTHROPIC_API_KEY)");
+  }
+
+  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  const respuesta = await client.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 2048,
+    messages: [{ role: "user", content: [...content, { type: "text", text: PROMPT }] }],
+  });
+
+  const bloqueTexto = respuesta.content.find((b) => b.type === "text");
+  if (!bloqueTexto || bloqueTexto.type !== "text") {
+    throw new ValidationError("No se pudo leer la respuesta del modelo");
+  }
+  return parsearRespuesta(bloqueTexto.text);
+}
+
+export async function extraerFactura(
+  buffer: Buffer,
+  filename: string,
+  contentType: string
+): Promise<FacturaExtraida> {
+  const mediaType = detectarMediaType(filename, contentType);
+  const data = buffer.toString("base64");
+
+  const documentBlock: Anthropic.Messages.ContentBlockParam =
+    mediaType === "application/pdf"
+      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data } }
+      : {
+          type: "image",
+          source: { type: "base64", media_type: mediaType as "image/jpeg" | "image/png" | "image/webp", data },
+        };
+
+  return pedirExtraccion([documentBlock]);
+}
+
+export async function extraerFacturaDeTexto(texto: string): Promise<FacturaExtraida> {
+  if (!texto.trim()) throw new ValidationError("El texto está vacío");
+  return pedirExtraccion([{ type: "text", text: `Mensaje del dueño describiendo la compra:\n"""${texto}"""` }]);
 }

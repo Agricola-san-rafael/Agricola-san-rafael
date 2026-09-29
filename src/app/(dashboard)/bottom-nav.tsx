@@ -33,7 +33,7 @@ export function BottomNav({ groups }: BottomNavProps) {
   const [abierto, setAbierto] = useState(false);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background md:hidden print:hidden">
       {ITEMS_PRINCIPALES.map((item) => (
         <Link
           key={item.href}

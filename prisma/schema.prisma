@@ -490,6 +490,22 @@ model MovimientoEntreEmpresas {
   @@map("movimientos_entre_empresas")
 }
 
+/// Ajuste manual del flujo de caja: saldo inicial al empezar a usar la app,
+/// o cualquier corrección puntual (diferencia de arqueo, retiro/aporte del
+/// dueño, etc.) que el flujo de caja no puede deducir solo de cobros/pagos/
+/// gastos. Monto positivo = suma al saldo; negativo = resta.
+model AjusteCaja {
+  id          String   @id @default(uuid())
+  fecha       DateTime @db.Date
+  monto       Decimal  @db.Decimal(14, 2)
+  motivo      String
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById String?  @map("created_by")
+
+  @@index([fecha])
+  @@map("ajustes_caja")
+}
+
 /// Intentos de login fallidos, para bloquear temporalmente cuando alguien prueba contraseñas.
 model IntentoLogin {
   id        String   @id @default(uuid())

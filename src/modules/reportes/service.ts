@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { diferenciaDiasUTC, medianocheUTC, sumarDiasUTC } from "@/modules/shared/dates";
+import { obtenerFlujoCaja } from "@/modules/flujo-caja/service";
 
 interface SaldoRow {
   saldo_pendiente: string;
@@ -12,14 +13,19 @@ export interface KPIs {
   totalCxP: number;
   capitalDeTrabajo: number;
   stockValorizado: number;
+  saldoCaja: number;
 }
 
-/** Los mismos KPIs de la hoja Resumen del Excel (sección 6: GET /reportes/kpis). */
+/**
+ * Los mismos KPIs de la hoja Resumen del Excel (sección 6: GET /reportes/kpis).
+ * Capital de trabajo = por cobrar - por pagar + stock + caja: sin la caja, el
+ * número no refleja la plata real disponible (ver /flujo-caja y sus ajustes).
+ */
 export async function obtenerKPIs(): Promise<KPIs> {
   const hoy = medianocheUTC(new Date());
   const inicioMes = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), 1));
 
-  const [ventasMes, comprasMes, saldosClientes, saldosProveedores, lotes] = await Promise.all([
+  const [ventasMes, comprasMes, saldosClientes, saldosProveedores, lotes, flujoCaja] = await Promise.all([
     prisma.venta.aggregate({
       where: { fecha: { gte: inicioMes }, esAjuste: false },
       _count: true,
@@ -33,6 +39,7 @@ export async function obtenerKPIs(): Promise<KPIs> {
     prisma.$queryRaw<SaldoRow[]>`SELECT saldo_pendiente FROM vista_saldo_clientes`,
     prisma.$queryRaw<SaldoRow[]>`SELECT saldo_pendiente FROM vista_saldo_proveedores`,
     prisma.loteInventario.findMany({ where: { kilosDisponibles: { gt: 0 } } }),
+    obtenerFlujoCaja(),
   ]);
 
   const totalCxC = saldosClientes.reduce((acc, r) => acc + Math.max(0, Number(r.saldo_pendiente)), 0);
@@ -41,6 +48,7 @@ export async function obtenerKPIs(): Promise<KPIs> {
     (acc, l) => acc + Number(l.kilosDisponibles) * Number(l.costoKg),
     0
   );
+  const saldoCaja = flujoCaja.at(-1)?.saldoCorrido ?? 0;
 
   return {
     ventasDelMes: {
@@ -54,8 +62,9 @@ export async function obtenerKPIs(): Promise<KPIs> {
     },
     totalCxC,
     totalCxP,
-    capitalDeTrabajo: totalCxC - totalCxP + stockValorizado,
+    capitalDeTrabajo: totalCxC - totalCxP + stockValorizado + saldoCaja,
     stockValorizado,
+    saldoCaja,
   };
 }
 

@@ -19,6 +19,7 @@ import { formatCLP } from "@/modules/shared/money";
 import { useOfflineDraft, reintentarAlReconectar } from "@/hooks/useOfflineDraft";
 import { compraSchema } from "@/modules/compras/schema";
 import { calibreSchema } from "@/modules/catalogos/schema";
+import { proveedorSchema } from "@/modules/proveedores/schema";
 import { sugerirEntidad } from "@/modules/shared/sugerir-entidad";
 import type { FacturaExtraida } from "@/modules/compras/extraer-factura";
 import type { CompraDuplicada } from "@/modules/compras/service";
@@ -66,6 +67,14 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
   const [calibreNuevoCodigo, setCalibreNuevoCodigo] = useState("");
   const [mostrarCrearCalibre, setMostrarCrearCalibre] = useState(false);
   const [creandoCalibre, setCreandoCalibre] = useState(false);
+  const [proveedoresLocal, setProveedoresLocal] = useState<Proveedor[]>(proveedores);
+  const [proveedorNuevoNombre, setProveedorNuevoNombre] = useState("");
+  const [proveedorNuevoRut, setProveedorNuevoRut] = useState("");
+  const [mostrarCrearProveedor, setMostrarCrearProveedor] = useState(false);
+  const [creandoProveedor, setCreandoProveedor] = useState(false);
+  const [lineasRevision, setLineasRevision] = useState<
+    { variedadId: string; calibreId: string; kilos: number; precioKg: number; etiqueta: string }[] | null
+  >(null);
 
   function aplicarDatosFactura(factura: FacturaExtraida) {
     if (factura.fecha) setValue("fecha", factura.fecha);
@@ -74,12 +83,42 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
     if (factura.iva !== null) setValue("iva", factura.iva);
 
     if (factura.proveedorRut || factura.proveedorNombre) {
-      const encontradoId = sugerirEntidad(proveedores, {
+      const encontradoId = sugerirEntidad(proveedoresLocal, {
         nombre: factura.proveedorNombre,
         rut: factura.proveedorRut,
       });
       if (encontradoId) setValue("proveedorId", encontradoId);
       else toast.info(`No encontré al proveedor "${factura.proveedorNombre}" en la lista — selecciónalo a mano`);
+    }
+  }
+
+  async function crearProveedorInline() {
+    const nombre = proveedorNuevoNombre.trim();
+    const parsed = proveedorSchema.safeParse({ nombre, rut: proveedorNuevoRut.trim() || undefined });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Datos inválidos");
+      return;
+    }
+    setCreandoProveedor(true);
+    try {
+      const res = await fetch("/api/v1/proveedores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "No se pudo crear el proveedor");
+        return;
+      }
+      setProveedoresLocal((prev) => [...prev, data]);
+      setValue("proveedorId", data.id);
+      setProveedorNuevoNombre("");
+      setProveedorNuevoRut("");
+      setMostrarCrearProveedor(false);
+      toast.success(`Proveedor "${data.nombre}" creado y seleccionado`);
+    } finally {
+      setCreandoProveedor(false);
     }
   }
 
@@ -153,8 +192,39 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
     }
   }
 
-  async function registrarTodasLasLineas() {
+  function prepararRevisionLote() {
     if (!facturaExtraida) return;
+    const sinCalibre: string[] = [];
+    const lineas = facturaExtraida.lineas
+      .map((linea) => {
+        const resuelto = resolverVariedadCalibre(linea);
+        if (!resuelto) {
+          sinCalibre.push(`${linea.variedad} ${linea.calibre} (${linea.kilos} kg)`);
+          return null;
+        }
+        return {
+          variedadId: resuelto.variedadId,
+          calibreId: resuelto.calibreId,
+          kilos: linea.kilos,
+          precioKg: linea.precioKg,
+          etiqueta: `${linea.variedad} ${linea.calibre}`,
+        };
+      })
+      .filter((l): l is NonNullable<typeof l> => l !== null);
+
+    if (sinCalibre.length > 0) {
+      toast.error(`No encontré variedad/calibre para: ${sinCalibre.join(", ")} — carga esas a mano`);
+    }
+    if (lineas.length === 0) return;
+    setLineasRevision(lineas);
+  }
+
+  function actualizarLineaRevision(indice: number, cambios: Partial<NonNullable<typeof lineasRevision>[number]>) {
+    setLineasRevision((prev) => prev && prev.map((l, i) => (i === indice ? { ...l, ...cambios } : l)));
+  }
+
+  async function confirmarRegistroLote() {
+    if (!lineasRevision || lineasRevision.length === 0) return;
     const proveedorActual = form.getValues("proveedorId");
     if (!proveedorActual) {
       toast.error("Selecciona el proveedor antes de registrar todas las líneas");
@@ -162,31 +232,20 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
     }
 
     const base = form.getValues();
-    const sinCalibre: string[] = [];
-    const resueltas = facturaExtraida.lineas
-      .map((linea) => {
-        const resuelto = resolverVariedadCalibre(linea);
-        if (!resuelto) {
-          sinCalibre.push(`${linea.variedad} ${linea.calibre} (${linea.kilos} kg)`);
-          return null;
-        }
-        return { linea, resuelto, subtotal: linea.kilos * linea.precioKg };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
-
     // El neto/IVA que trae la factura es del total, no por línea — se
     // reparte a prorrata del subtotal de cada línea (en vez de cargárselo
     // completo a la primera) para que el detalle de cada lote quede fiel.
-    const sumaSubtotales = resueltas.reduce((s, r) => s + r.subtotal, 0);
-    const payloads = resueltas.map(({ linea, resuelto, subtotal }) => {
+    const sumaSubtotales = lineasRevision.reduce((s, l) => s + l.kilos * l.precioKg, 0);
+    const payloads = lineasRevision.map((l) => {
+      const subtotal = l.kilos * l.precioKg;
       const proporcion = sumaSubtotales > 0 ? subtotal / sumaSubtotales : 0;
       return {
         fecha: base.fecha,
         proveedorId: proveedorActual,
-        variedadId: resuelto.variedadId,
-        calibreId: resuelto.calibreId,
-        kilos: linea.kilos,
-        precioKg: linea.precioKg,
+        variedadId: l.variedadId,
+        calibreId: l.calibreId,
+        kilos: l.kilos,
+        precioKg: l.precioKg,
         formaPago: base.formaPago,
         estadoPago: base.estadoPago,
         nFactura: base.nFactura,
@@ -194,11 +253,6 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
         iva: base.iva != null && base.iva !== "" ? Math.round(Number(base.iva) * proporcion) : undefined,
       };
     });
-
-    if (sinCalibre.length > 0) {
-      toast.error(`No encontré variedad/calibre para: ${sinCalibre.join(", ")} — carga esas a mano`);
-    }
-    if (payloads.length === 0) return;
 
     setRegistrandoLote(true);
     try {
@@ -301,7 +355,7 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
         }}
       />
 
-      {facturaExtraida && facturaExtraida.lineas.length > 1 && (
+      {facturaExtraida && facturaExtraida.lineas.length > 1 && !lineasRevision && (
         <div className="flex flex-col gap-2 rounded-md border p-3">
           <p className="text-sm font-medium">Se detectaron varias líneas — elige cuál cargar:</p>
           {facturaExtraida.lineas.map((linea, i) => (
@@ -317,7 +371,7 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
             </Button>
           ))}
           <p className="text-xs text-muted-foreground">
-            Cada línea es una compra distinta. Puedes cargarlas una por una, o registrarlas todas
+            Cada línea es una compra distinta. Puedes cargarlas una por una, o revisarlas todas
             juntas (necesitas el proveedor seleccionado abajo primero).
           </p>
           <Button
@@ -325,11 +379,60 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
             variant="default"
             size="sm"
             className="w-fit"
-            disabled={registrandoLote}
-            onClick={registrarTodasLasLineas}
+            onClick={prepararRevisionLote}
           >
-            {registrandoLote ? "Registrando..." : `Registrar las ${facturaExtraida.lineas.length} líneas`}
+            {`Revisar y registrar las ${facturaExtraida.lineas.length} líneas`}
           </Button>
+        </div>
+      )}
+
+      {lineasRevision && (
+        <div className="flex flex-col gap-2 rounded-md border p-3">
+          <p className="text-sm font-medium">Revisa y corrige cada línea antes de guardar:</p>
+          {lineasRevision.map((linea, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+              <span className="w-28 text-xs text-muted-foreground">{linea.etiqueta}</span>
+              <SelectField
+                value={linea.calibreId}
+                onValueChange={(value) => actualizarLineaRevision(i, { calibreId: value ?? "" })}
+                options={calibresLocal
+                  .filter((c) => !c.variedadId || c.variedadId === linea.variedadId)
+                  .map((c) => ({ value: c.id, label: c.codigo }))}
+                placeholder="Calibre"
+              />
+              <NumericInput
+                value={linea.kilos}
+                onChange={(e) => actualizarLineaRevision(i, { kilos: Number(e.target.value) || 0 })}
+                className="w-20"
+              />
+              <span className="text-xs text-muted-foreground">kg @ $</span>
+              <NumericInput
+                value={linea.precioKg}
+                onChange={(e) => actualizarLineaRevision(i, { precioKg: Number(e.target.value) || 0 })}
+                className="w-24"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setLineasRevision((prev) => prev && prev.filter((_, j) => j !== i))}
+              >
+                Quitar
+              </Button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              disabled={registrandoLote || lineasRevision.length === 0}
+              onClick={confirmarRegistroLote}
+            >
+              {registrandoLote ? "Registrando..." : `Confirmar y registrar ${lineasRevision.length} línea(s)`}
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setLineasRevision(null)}>
+              Cancelar
+            </Button>
+          </div>
         </div>
       )}
 
@@ -344,11 +447,51 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
         <SelectField
           value={proveedorId}
           onValueChange={(value) => setValue("proveedorId", value ?? "")}
-          options={proveedores.map((p) => ({ value: p.id, label: p.nombre }))}
+          options={proveedoresLocal.map((p) => ({ value: p.id, label: p.nombre }))}
           placeholder="Selecciona un proveedor"
         />
         {errors.proveedorId && (
           <p className="text-sm text-destructive">{errors.proveedorId.message}</p>
+        )}
+        {!mostrarCrearProveedor && (
+          <button
+            type="button"
+            className="w-fit text-xs text-primary hover:underline"
+            onClick={() => setMostrarCrearProveedor(true)}
+          >
+            + Crear proveedor nuevo
+          </button>
+        )}
+        {mostrarCrearProveedor && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+            <Input
+              value={proveedorNuevoNombre}
+              onChange={(e) => setProveedorNuevoNombre(e.target.value)}
+              placeholder="Nombre del proveedor"
+              className="w-48"
+            />
+            <Input
+              value={proveedorNuevoRut}
+              onChange={(e) => setProveedorNuevoRut(e.target.value)}
+              placeholder="RUT (opcional)"
+              className="w-32"
+            />
+            <Button type="button" size="sm" disabled={creandoProveedor} onClick={crearProveedorInline}>
+              {creandoProveedor ? "Creando..." : "Crear y usar"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setMostrarCrearProveedor(false);
+                setProveedorNuevoNombre("");
+                setProveedorNuevoRut("");
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
         )}
       </div>
 

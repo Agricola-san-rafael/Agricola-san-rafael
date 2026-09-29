@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -9,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SelectField } from "@/components/forms/select-field";
 import { NumericInput } from "@/components/forms/numeric-input";
 import { clienteSchema } from "@/modules/clientes/schema";
+import { sugerirEntidad, type EntidadCandidata } from "@/modules/shared/sugerir-entidad";
 import type { Cliente, EmpresaGasto } from "@/generated/prisma/client";
 
 type FormInput = z.input<typeof clienteSchema>;
@@ -23,9 +26,16 @@ interface ClienteFormProps {
   empresa?: EmpresaGasto;
   /** A dónde volver después de guardar (lista de clientes de la empresa correspondiente). */
   volverA?: string;
+  /** Clientes ya registrados de esta empresa, para avisar si el nuevo se parece a uno existente. */
+  clientesExistentes?: EntidadCandidata[];
 }
 
-export function ClienteForm({ cliente, empresa = "agricola", volverA = "/clientes" }: ClienteFormProps) {
+export function ClienteForm({
+  cliente,
+  empresa = "agricola",
+  volverA = "/clientes",
+  clientesExistentes = [],
+}: ClienteFormProps) {
   const router = useRouter();
   const {
     register,
@@ -52,6 +62,13 @@ export function ClienteForm({ cliente, empresa = "agricola", volverA = "/cliente
 
   const condicionesPago = watch("condicionesPago");
   const activo = watch("activo") ?? true;
+  const nombre = watch("nombre");
+  const rut = watch("rut");
+  const duplicadoId =
+    !cliente && clientesExistentes.length > 0 && (nombre?.trim().length ?? 0) >= 3
+      ? sugerirEntidad(clientesExistentes, { nombre: nombre ?? null, rut: rut ?? null })
+      : null;
+  const duplicado = duplicadoId ? clientesExistentes.find((c) => c.id === duplicadoId) : undefined;
 
   async function onSubmit(values: FormOutput) {
     const url = cliente ? `/api/v1/clientes/${cliente.id}` : "/api/v1/clientes";
@@ -83,6 +100,19 @@ export function ClienteForm({ cliente, empresa = "agricola", volverA = "/cliente
         <Label htmlFor="rut">RUT</Label>
         <Input id="rut" {...register("rut")} />
       </div>
+
+      {duplicado && (
+        <Alert>
+          <AlertTitle>Ya existe un cliente parecido</AlertTitle>
+          <AlertDescription>
+            <Link href={`${volverA}/${duplicado.id}`} target="_blank" className="underline">
+              {duplicado.nombre}
+            </Link>
+            {duplicado.rut ? ` (RUT ${duplicado.rut})` : ""} ya está registrado. Revisa que no sea el mismo antes de
+            crear uno nuevo.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="contacto">Contacto</Label>

@@ -4,17 +4,24 @@ import { obtenerLotesDisponibles } from "@/modules/inventario/service";
 import { parsePageParams } from "@/modules/shared/pagination";
 import { VentaForm } from "../venta-form";
 
-export default async function NuevaVentaPage() {
-  const [session, { data: clientes }, lotes] = await Promise.all([
+export default async function NuevaVentaPage({ searchParams }: PageProps<"/ventas/nueva">) {
+  const [session, { data: clientes }, lotes, params] = await Promise.all([
     getSession(),
     listarClientes(parsePageParams(new URLSearchParams({ pageSize: "100" })), "agricola", true),
     obtenerLotesDisponibles(),
+    searchParams,
   ]);
+  const loteIdInicial = typeof params.loteId === "string" ? params.loteId : undefined;
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Nueva venta</h1>
-      <VentaForm clientes={clientes} lotes={lotes} esAdmin={session?.rol === "admin"} />
+      <VentaForm
+        clientes={clientes}
+        lotes={lotes}
+        esAdmin={session?.rol === "admin"}
+        loteIdInicial={loteIdInicial}
+      />
     </div>
   );
 }

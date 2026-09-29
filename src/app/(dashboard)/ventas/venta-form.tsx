@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,6 +19,7 @@ import { todayLocalISODate } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
 import { useOfflineDraft, reintentarAlReconectar } from "@/hooks/useOfflineDraft";
 import { ventaSchema } from "@/modules/ventas/schema";
+import { clienteSchema } from "@/modules/clientes/schema";
 import { sugerirEntidad } from "@/modules/shared/sugerir-entidad";
 import type { VentaExtraida } from "@/modules/ventas/extraer-venta";
 import type { obtenerLotesDisponibles } from "@/modules/inventario/service";
@@ -40,9 +41,11 @@ interface VentaFormProps {
   clientes: Cliente[];
   lotes: LoteDisponible[];
   esAdmin: boolean;
+  /** Lote a preseleccionar al llegar desde el QR impreso de ese lote. */
+  loteIdInicial?: string;
 }
 
-export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
+export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial }: VentaFormProps) {
   const router = useRouter();
   const [kilosFaltantes, setKilosFaltantes] = useState<number | null>(null);
   const form = useForm<FormInput, unknown, FormOutput>({
@@ -64,8 +67,26 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
     formState: { errors, isSubmitting },
   } = form;
   const { limpiarBorrador } = useOfflineDraft("borrador-venta", form);
+
+  useEffect(() => {
+    if (!loteIdInicial) return;
+    const lote = lotes.find((l) => l.id === loteIdInicial);
+    if (!lote) return;
+    setValue("loteId", loteIdInicial);
+    toast.info(`Lote ${lote.sku} preseleccionado desde el código QR`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [ventaExtraida, setVentaExtraida] = useState<VentaExtraida | null>(null);
   const [registrandoLote, setRegistrandoLote] = useState(false);
+  const [clientesLocal, setClientesLocal] = useState<Cliente[]>(clientes);
+  const [clienteNuevoNombre, setClienteNuevoNombre] = useState("");
+  const [clienteNuevoRut, setClienteNuevoRut] = useState("");
+  const [mostrarCrearCliente, setMostrarCrearCliente] = useState(false);
+  const [creandoCliente, setCreandoCliente] = useState(false);
+  const [lineasRevision, setLineasRevision] = useState<
+    { loteId: string; kilos: number; precioKg: number; etiqueta: string }[] | null
+  >(null);
 
   function aplicarDatosVenta(venta: VentaExtraida) {
     if (venta.fecha) setValue("fecha", venta.fecha);
@@ -74,9 +95,39 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
     if (venta.nDocumento) setValue("nDocumento", venta.nDocumento);
 
     if (venta.clienteRut || venta.clienteNombre) {
-      const encontradoId = sugerirEntidad(clientes, { nombre: venta.clienteNombre, rut: venta.clienteRut });
+      const encontradoId = sugerirEntidad(clientesLocal, { nombre: venta.clienteNombre, rut: venta.clienteRut });
       if (encontradoId) setValue("clienteId", encontradoId);
       else toast.info(`No encontré al cliente "${venta.clienteNombre}" en la lista — selecciónalo a mano`);
+    }
+  }
+
+  async function crearClienteInline() {
+    const nombre = clienteNuevoNombre.trim();
+    const parsed = clienteSchema.safeParse({ nombre, rut: clienteNuevoRut.trim() || undefined });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Datos inválidos");
+      return;
+    }
+    setCreandoCliente(true);
+    try {
+      const res = await fetch("/api/v1/clientes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "No se pudo crear el cliente");
+        return;
+      }
+      setClientesLocal((prev) => [...prev, data]);
+      setValue("clienteId", data.id);
+      setClienteNuevoNombre("");
+      setClienteNuevoRut("");
+      setMostrarCrearCliente(false);
+      toast.success(`Cliente "${data.nombre}" creado y seleccionado`);
+    } finally {
+      setCreandoCliente(false);
     }
   }
 
@@ -111,17 +162,10 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
     setValue("precioKg", linea.precioKg);
   }
 
-  async function registrarTodasLasLineas() {
+  function prepararRevisionLote() {
     if (!ventaExtraida) return;
-    const clienteActual = getValues("clienteId");
-    if (!clienteActual) {
-      toast.error("Selecciona el cliente antes de registrar todas las líneas");
-      return;
-    }
-
-    const base = getValues();
     const sinLote: string[] = [];
-    const payloads = ventaExtraida.lineas
+    const lineas = ventaExtraida.lineas
       .map((linea) => {
         const lote = resolverLote(linea);
         if (!lote) {
@@ -129,23 +173,45 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
           return null;
         }
         return {
-          fecha: base.fecha,
-          clienteId: clienteActual,
           loteId: lote.id,
           kilos: linea.kilos,
           precioKg: linea.precioKg,
-          formaPago: base.formaPago,
-          estadoPago: base.estadoPago,
-          tipoDocumento: base.tipoDocumento,
-          nDocumento: base.nDocumento,
+          etiqueta: `${linea.variedad} ${linea.calibre}`,
         };
       })
-      .filter((p): p is NonNullable<typeof p> => p !== null);
+      .filter((l): l is NonNullable<typeof l> => l !== null);
 
     if (sinLote.length > 0) {
       toast.error(`No encontré lote para: ${sinLote.join(", ")} — carga esas a mano`);
     }
-    if (payloads.length === 0) return;
+    if (lineas.length === 0) return;
+    setLineasRevision(lineas);
+  }
+
+  function actualizarLineaRevision(indice: number, cambios: Partial<NonNullable<typeof lineasRevision>[number]>) {
+    setLineasRevision((prev) => prev && prev.map((l, i) => (i === indice ? { ...l, ...cambios } : l)));
+  }
+
+  async function confirmarRegistroLote() {
+    if (!lineasRevision || lineasRevision.length === 0) return;
+    const clienteActual = getValues("clienteId");
+    if (!clienteActual) {
+      toast.error("Selecciona el cliente antes de registrar todas las líneas");
+      return;
+    }
+
+    const base = getValues();
+    const payloads = lineasRevision.map((l) => ({
+      fecha: base.fecha,
+      clienteId: clienteActual,
+      loteId: l.loteId,
+      kilos: l.kilos,
+      precioKg: l.precioKg,
+      formaPago: base.formaPago,
+      estadoPago: base.estadoPago,
+      tipoDocumento: base.tipoDocumento,
+      nDocumento: base.nDocumento,
+    }));
 
     setRegistrandoLote(true);
     try {
@@ -240,7 +306,7 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
         }}
       />
 
-      {ventaExtraida && ventaExtraida.lineas.length > 1 && (
+      {ventaExtraida && ventaExtraida.lineas.length > 1 && !lineasRevision && (
         <div className="flex flex-col gap-2 rounded-md border p-3">
           <p className="text-sm font-medium">Se detectaron varias líneas — elige cuál cargar:</p>
           {ventaExtraida.lineas.map((linea, i) => (
@@ -256,19 +322,63 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
             </Button>
           ))}
           <p className="text-xs text-muted-foreground">
-            Cada línea es una venta distinta. Puedes cargarlas una por una, o registrarlas todas
+            Cada línea es una venta distinta. Puedes cargarlas una por una, o revisarlas todas
             juntas (necesitas el cliente seleccionado abajo primero).
           </p>
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            className="w-fit"
-            disabled={registrandoLote}
-            onClick={registrarTodasLasLineas}
-          >
-            {registrandoLote ? "Registrando..." : `Registrar las ${ventaExtraida.lineas.length} líneas`}
+          <Button type="button" variant="default" size="sm" className="w-fit" onClick={prepararRevisionLote}>
+            {`Revisar y registrar las ${ventaExtraida.lineas.length} líneas`}
           </Button>
+        </div>
+      )}
+
+      {lineasRevision && (
+        <div className="flex flex-col gap-2 rounded-md border p-3">
+          <p className="text-sm font-medium">Revisa y corrige cada línea antes de guardar:</p>
+          {lineasRevision.map((linea, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+              <span className="w-28 text-xs text-muted-foreground">{linea.etiqueta}</span>
+              <SelectField
+                value={linea.loteId}
+                onValueChange={(value) => actualizarLineaRevision(i, { loteId: value ?? "" })}
+                options={lotes.map((l) => ({
+                  value: l.id,
+                  label: `${l.sku} — ${Number(l.kilosDisponibles)} kg disp.`,
+                }))}
+                placeholder="Lote"
+              />
+              <NumericInput
+                value={linea.kilos}
+                onChange={(e) => actualizarLineaRevision(i, { kilos: Number(e.target.value) || 0 })}
+                className="w-20"
+              />
+              <span className="text-xs text-muted-foreground">kg @ $</span>
+              <NumericInput
+                value={linea.precioKg}
+                onChange={(e) => actualizarLineaRevision(i, { precioKg: Number(e.target.value) || 0 })}
+                className="w-24"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setLineasRevision((prev) => prev && prev.filter((_, j) => j !== i))}
+              >
+                Quitar
+              </Button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              disabled={registrandoLote || lineasRevision.length === 0}
+              onClick={confirmarRegistroLote}
+            >
+              {registrandoLote ? "Registrando..." : `Confirmar y registrar ${lineasRevision.length} línea(s)`}
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setLineasRevision(null)}>
+              Cancelar
+            </Button>
+          </div>
         </div>
       )}
 
@@ -283,11 +393,51 @@ export function VentaForm({ clientes, lotes, esAdmin }: VentaFormProps) {
         <SelectField
           value={clienteId}
           onValueChange={(value) => setValue("clienteId", value ?? "")}
-          options={clientes.map((c) => ({ value: c.id, label: c.nombre }))}
+          options={clientesLocal.map((c) => ({ value: c.id, label: c.nombre }))}
           placeholder="Selecciona un cliente"
         />
         {errors.clienteId && (
           <p className="text-sm text-destructive">{errors.clienteId.message}</p>
+        )}
+        {!mostrarCrearCliente && (
+          <button
+            type="button"
+            className="w-fit text-xs text-primary hover:underline"
+            onClick={() => setMostrarCrearCliente(true)}
+          >
+            + Crear cliente nuevo
+          </button>
+        )}
+        {mostrarCrearCliente && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+            <Input
+              value={clienteNuevoNombre}
+              onChange={(e) => setClienteNuevoNombre(e.target.value)}
+              placeholder="Nombre del cliente"
+              className="w-48"
+            />
+            <Input
+              value={clienteNuevoRut}
+              onChange={(e) => setClienteNuevoRut(e.target.value)}
+              placeholder="RUT (opcional)"
+              className="w-32"
+            />
+            <Button type="button" size="sm" disabled={creandoCliente} onClick={crearClienteInline}>
+              {creandoCliente ? "Creando..." : "Crear y usar"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setMostrarCrearCliente(false);
+                setClienteNuevoNombre("");
+                setClienteNuevoRut("");
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
         )}
       </div>
 

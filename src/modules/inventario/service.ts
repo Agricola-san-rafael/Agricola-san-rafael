@@ -47,13 +47,61 @@ export async function obtenerStockActual(): Promise<StockActual[]> {
     .sort((a, b) => a.variedadNombre.localeCompare(b.variedadNombre));
 }
 
+/**
+ * Los Decimal de Prisma no se pueden pasar de un Server Component a uno
+ * Client tal cual (React tira "Only plain objects can be passed...") — se
+ * convierten a number acá, en el único lugar que arma este shape, para que
+ * ningún llamador (ni los que hoy pasan el resultado a un Client Component,
+ * ni los que se agreguen después) tenga que acordarse de hacerlo.
+ */
+function serializarLote<
+  T extends {
+    kilosIniciales: Prisma.Decimal;
+    kilosDisponibles: Prisma.Decimal;
+    costoKg: Prisma.Decimal;
+    compra: {
+      kilos: Prisma.Decimal;
+      precioKg: Prisma.Decimal;
+      total: Prisma.Decimal;
+      neto: Prisma.Decimal | null;
+      iva: Prisma.Decimal | null;
+    };
+  },
+>(lote: T) {
+  return {
+    ...lote,
+    kilosIniciales: Number(lote.kilosIniciales),
+    kilosDisponibles: Number(lote.kilosDisponibles),
+    costoKg: Number(lote.costoKg),
+    compra: {
+      ...lote.compra,
+      kilos: Number(lote.compra.kilos),
+      precioKg: Number(lote.compra.precioKg),
+      total: Number(lote.compra.total),
+      neto: lote.compra.neto === null ? null : Number(lote.compra.neto),
+      iva: lote.compra.iva === null ? null : Number(lote.compra.iva),
+    },
+  };
+}
+
 /** Detalle de lotes con kilos_disponibles > 0 (sección 6: GET /inventario/lotes). */
 export async function obtenerLotesDisponibles() {
-  return prisma.loteInventario.findMany({
+  const lotes = await prisma.loteInventario.findMany({
     where: { kilosDisponibles: { gt: 0 } },
     include: { variedad: true, calibre: true, compra: { include: { proveedor: true } } },
     orderBy: { fechaIngreso: "asc" },
   });
+  return lotes.map(serializarLote);
+}
+
+/** Un lote puntual (para la página de su código QR), esté o no agotado. */
+export async function obtenerLoteInventario(id: string) {
+  const lote = await prisma.loteInventario.findUnique({
+    where: { id },
+    include: { variedad: true, calibre: true, compra: { include: { proveedor: true } } },
+  });
+  if (!lote) throw new NotFoundError("Lote no encontrado");
+  return serializarLote(lote);
 }
 
 /**
