@@ -13,6 +13,7 @@ export interface KPIs {
   totalCxP: number;
   capitalDeTrabajo: number;
   stockValorizado: number;
+  kilosStock: number;
   saldoCaja: number;
 }
 
@@ -48,6 +49,7 @@ export async function obtenerKPIs(): Promise<KPIs> {
     (acc, l) => acc + Number(l.kilosDisponibles) * Number(l.costoKg),
     0
   );
+  const kilosStock = lotes.reduce((acc, l) => acc + Number(l.kilosDisponibles), 0);
   const saldoCaja = flujoCaja.at(-1)?.saldoCorrido ?? 0;
 
   return {
@@ -64,6 +66,7 @@ export async function obtenerKPIs(): Promise<KPIs> {
     totalCxP,
     capitalDeTrabajo: totalCxC - totalCxP + stockValorizado + saldoCaja,
     stockValorizado,
+    kilosStock,
     saldoCaja,
   };
 }
