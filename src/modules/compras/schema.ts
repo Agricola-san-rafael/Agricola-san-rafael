@@ -20,6 +20,8 @@ export const compraSchema = z.object({
   precioKg: numeroPositivo,
   formaPago: z.enum(["contado", "credito"]),
   estadoPago: z.enum(["pagado", "pendiente", "parcial"]),
+  /** Con qué se pagó, cuando la compra se registra como pagada: define si la plata sale de la caja de efectivo o de la del banco. */
+  medioPago: z.enum(["efectivo", "transferencia", "deposito_cajavecina", "mercadopago", "otro"]).optional(),
   nFactura: z.string().optional(),
   neto: numeroOpcional,
   iva: numeroOpcional,

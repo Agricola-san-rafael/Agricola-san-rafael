@@ -18,12 +18,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { NumericInput } from "@/components/forms/numeric-input";
+import { SelectField } from "@/components/forms/select-field";
 import { todayLocalISODate } from "@/modules/shared/dates";
 
 export function AjustarCajaDialog() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [fecha, setFecha] = useState(todayLocalISODate());
+  const [caja, setCaja] = useState<"efectivo" | "banco">("efectivo");
   const [monto, setMonto] = useState("");
   const [motivo, setMotivo] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -44,7 +46,7 @@ export function AjustarCajaDialog() {
       const res = await fetch("/api/v1/flujo-caja/ajuste", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fecha, monto: valor, motivo: motivo.trim() }),
+        body: JSON.stringify({ fecha, monto: valor, motivo: motivo.trim(), caja }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -68,8 +70,8 @@ export function AjustarCajaDialog() {
         <DialogHeader>
           <DialogTitle>Ajustar caja</DialogTitle>
           <DialogDescription>
-            Para un saldo inicial (la plata que ya tenías antes de empezar a usar la app) o
-            cualquier diferencia de arqueo. Usa un valor negativo para descontar.
+            Para un saldo inicial, un retiro o un aporte. Para igualar la caja a lo que cuentas de
+            verdad usa mejor &quot;Hacer arqueo&quot;. Usa un valor negativo para descontar.
           </DialogDescription>
         </DialogHeader>
 
@@ -77,6 +79,17 @@ export function AjustarCajaDialog() {
           <div className="flex flex-col gap-2">
             <Label htmlFor="fecha">Fecha</Label>
             <Input id="fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>Caja</Label>
+            <SelectField
+              value={caja}
+              onValueChange={(v) => setCaja(v === "banco" ? "banco" : "efectivo")}
+              options={[
+                { value: "efectivo", label: "Efectivo" },
+                { value: "banco", label: "Banco" },
+              ]}
+            />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="monto">Monto ($)</Label>

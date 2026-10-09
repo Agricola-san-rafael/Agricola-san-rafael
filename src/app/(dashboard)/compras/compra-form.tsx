@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NumericInput } from "@/components/forms/numeric-input";
+import { MEDIOS_PAGO, type MedioPagoValor } from "@/modules/shared/medios-pago";
 import { SelectField } from "@/components/forms/select-field";
 import { FacturaExtractor } from "@/components/forms/factura-extractor";
 import { todayLocalISODate, formatDateCL } from "@/modules/shared/dates";
@@ -50,6 +51,7 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
       fecha: todayLocalISODate(),
       formaPago: "contado",
       estadoPago: "pagado",
+      medioPago: "transferencia",
     },
   });
   const {
@@ -248,6 +250,7 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
         precioKg: l.precioKg,
         formaPago: base.formaPago,
         estadoPago: base.estadoPago,
+        medioPago: base.medioPago,
         nFactura: base.nFactura,
         neto: base.neto != null && base.neto !== "" ? Math.round(Number(base.neto) * proporcion) : undefined,
         iva: base.iva != null && base.iva !== "" ? Math.round(Number(base.iva) * proporcion) : undefined,
@@ -291,6 +294,7 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
   const calibreId = watch("calibreId");
   const formaPago = watch("formaPago");
   const estadoPago = watch("estadoPago");
+  const medioPago = watch("medioPago");
   const nFactura = watch("nFactura");
   const fecha = watch("fecha");
   const kilos = watch("kilos");
@@ -606,6 +610,17 @@ export function CompraForm({ proveedores, variedades, calibres }: CompraFormProp
           />
         </div>
       </div>
+
+      {estadoPago === "pagado" && (
+        <div className="flex flex-col gap-2">
+          <Label>Medio de pago (cómo pagaste)</Label>
+          <SelectField
+            value={medioPago}
+            onValueChange={(value) => setValue("medioPago", value as MedioPagoValor)}
+            options={[...MEDIOS_PAGO]}
+          />
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="nFactura">N° de factura (opcional)</Label>

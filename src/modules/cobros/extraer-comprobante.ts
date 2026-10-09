@@ -15,6 +15,8 @@ const comprobanteSchema = z.object({
   pagadorRut: z.string().nullable(),
   glosa: z.string().nullable(),
   banco: z.string().nullable(),
+  cuentaOrigen: z.string().nullish(),
+  bancoOrigen: z.string().nullish(),
 });
 
 export type ComprobanteExtraido = z.infer<typeof comprobanteSchema>;
@@ -32,7 +34,9 @@ Responde ÚNICAMENTE con un objeto JSON (sin texto adicional, sin markdown, sin 
   "pagadorNombre": string o null (quien HIZO el pago: en una transferencia es el "Origen"/titular de la cuenta de origen; en un depósito es quien deposita si aparece su nombre),
   "pagadorRut": string o null (RUT de quien paga; en depósitos CajaVecina aparece como "RUT DEPOSITANTE"),
   "glosa": string o null (mensaje o comentario que escribió quien paga, ej. "50 kilos paltas claudio"),
-  "banco": string o null (banco o servicio del comprobante, ej. "Banco Falabella", "CajaVecina")
+  "banco": string o null (banco o servicio del comprobante, ej. "Banco Falabella", "CajaVecina"),
+  "cuentaOrigen": string o null (la cuenta DESDE la que se pagó, tal como aparece, aunque venga tapada: ej. "Cta. Vista ****8648", "CuentaRUT 00026859977", "0-000-9685734-9". NO pongas la cuenta de destino; si el comprobante no muestra la cuenta de origen, null),
+  "bancoOrigen": string o null (banco de esa cuenta de origen, ej. "BCI", "Santander", "BancoEstado"; una CuentaRUT es de BancoEstado; si no se sabe, null)
 }
 
 Notas importantes:

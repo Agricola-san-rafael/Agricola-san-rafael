@@ -8,6 +8,7 @@ import { ValidationError } from "@/modules/shared/errors";
 import { extraerComprobante } from "@/modules/cobros/extraer-comprobante";
 import { obtenerPorCobrar } from "@/modules/cobros/por-cobrar";
 import { sugerirCliente } from "@/modules/cobros/sugerir-cliente";
+import { buscarClientePorCuenta } from "@/modules/cobros/cuenta-origen";
 
 export async function POST(request: Request) {
   try {
@@ -24,10 +25,13 @@ export async function POST(request: Request) {
       obtenerPorCobrar(),
     ]);
     const saldos = new Map(deuda.clientes.map((c) => [c.clienteId, c.saldo]));
-    const clienteSugeridoId = sugerirCliente(
+    const porCuenta = await buscarClientePorCuenta(prisma, comprobante.cuentaOrigen, comprobante.bancoOrigen);
+    const porNombre = sugerirCliente(
       clientes.map((c) => ({ ...c, saldo: saldos.get(c.id) ?? 0 })),
       comprobante,
     );
+    const clienteSugeridoId = porCuenta ?? porNombre;
+    const sugeridoPor = porCuenta ? "cuenta" : porNombre ? "nombre" : null;
 
     const previo = comprobante.numeroOperacion
       ? await prisma.movimientoCobro.findFirst({
@@ -39,6 +43,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       comprobante,
       clienteSugeridoId,
+      sugeridoPor,
       duplicado: previo
         ? { cliente: previo.cliente.nombre, fecha: previo.fecha.toISOString().slice(0, 10), monto: Number(previo.monto) }
         : null,

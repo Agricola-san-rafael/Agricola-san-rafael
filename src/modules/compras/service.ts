@@ -175,7 +175,7 @@ export async function crearCompra(input: CompraInput, creadoPor: string) {
           compraId: compra.id,
           fecha: new Date(input.fecha),
           monto: total,
-          medioPago: "otro",
+          medioPago: input.medioPago ?? "otro",
           referencia: "Pago registrado automáticamente al crear la compra como pagada",
           createdById: creadoPor,
         },

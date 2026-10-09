@@ -30,6 +30,9 @@ interface Borrador {
   medioPago: MedioPago;
   referencia: string;
   comprobanteUrl?: string;
+  cuentaOrigen?: string;
+  bancoOrigen?: string;
+  sugeridoPor?: "cuenta" | "nombre" | null;
   duplicado?: { cliente: string; fecha: string; monto: number } | null;
 }
 
@@ -108,9 +111,10 @@ export function RegistrarPagos({ clientes }: { clientes: ClienteOpcion[] }) {
       return;
     }
 
-    const { comprobante, clienteSugeridoId, duplicado } = lectura.value.data as {
+    const { comprobante, clienteSugeridoId, sugeridoPor, duplicado } = lectura.value.data as {
       comprobante: ComprobanteExtraido;
       clienteSugeridoId: string | null;
+      sugeridoPor: Borrador["sugeridoPor"];
       duplicado: Borrador["duplicado"];
     };
     actualizar(uid, {
@@ -120,6 +124,9 @@ export function RegistrarPagos({ clientes }: { clientes: ClienteOpcion[] }) {
       monto: comprobante.monto != null ? String(comprobante.monto) : "",
       medioPago: comprobante.medioPago ?? "transferencia",
       referencia: armarReferencia(comprobante),
+      cuentaOrigen: comprobante.cuentaOrigen ?? undefined,
+      bancoOrigen: comprobante.bancoOrigen ?? undefined,
+      sugeridoPor,
       comprobanteUrl: subida.status === "fulfilled" && subida.value ? subida.value.key : undefined,
       duplicado,
     });
@@ -140,6 +147,8 @@ export function RegistrarPagos({ clientes }: { clientes: ClienteOpcion[] }) {
         medioPago: b.medioPago,
         referencia: b.referencia || undefined,
         comprobanteUrl: b.comprobanteUrl,
+        cuentaOrigen: b.cuentaOrigen,
+        bancoOrigen: b.bancoOrigen,
       }),
     });
     if (!res.ok) {
@@ -193,10 +202,20 @@ export function RegistrarPagos({ clientes }: { clientes: ClienteOpcion[] }) {
                   <Label>Cliente</Label>
                   <SelectField
                     value={b.clienteId}
-                    onValueChange={(v) => actualizar(b.uid, { clienteId: v })}
+                    onValueChange={(v) => actualizar(b.uid, { clienteId: v, sugeridoPor: null })}
                     options={opciones}
                     placeholder="Elige el cliente"
                   />
+                  {b.sugeridoPor === "cuenta" && (
+                    <p className="text-xs text-green-500">
+                      Reconocido por su cuenta de origen ({b.cuentaOrigen}).
+                    </p>
+                  )}
+                  {b.cuentaOrigen && b.sugeridoPor !== "cuenta" && (
+                    <p className="text-xs text-muted-foreground">
+                      Al registrar, la app recordará la cuenta {b.cuentaOrigen} para este cliente.
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1">
                   <Label>Fecha</Label>

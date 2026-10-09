@@ -12,6 +12,9 @@ export const cobroSchema = z.object({
   referencia: z.string().optional(),
   ventaId: z.string().uuid().optional().or(z.literal("").transform(() => undefined)),
   comprobanteUrl: z.string().optional(),
+  /** Cuenta desde la que pagó el cliente (leída del comprobante): se guarda para reconocerlo la próxima vez. */
+  cuentaOrigen: z.string().optional(),
+  bancoOrigen: z.string().optional(),
 });
 
 export type CobroInput = z.infer<typeof cobroSchema>;

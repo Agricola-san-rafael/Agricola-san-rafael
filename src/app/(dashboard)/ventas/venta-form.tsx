@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { NumericInput } from "@/components/forms/numeric-input";
+import { MEDIOS_PAGO, type MedioPagoValor } from "@/modules/shared/medios-pago";
 import { SelectField } from "@/components/forms/select-field";
 import { VentaExtractor } from "@/components/forms/venta-extractor";
 import { todayLocalISODate } from "@/modules/shared/dates";
@@ -54,6 +55,7 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial }: VentaForm
       fecha: todayLocalISODate(),
       formaPago: "contado",
       estadoPago: "pagado",
+      medioPago: "efectivo",
       tipoDocumento: "boleta",
       forzarVenta: false,
     },
@@ -209,6 +211,7 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial }: VentaForm
       precioKg: l.precioKg,
       formaPago: base.formaPago,
       estadoPago: base.estadoPago,
+      medioPago: base.medioPago,
       tipoDocumento: base.tipoDocumento,
       nDocumento: base.nDocumento,
     }));
@@ -250,6 +253,7 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial }: VentaForm
   const loteSeleccionado = lotes.find((l) => l.id === loteId);
   const formaPago = watch("formaPago");
   const estadoPago = watch("estadoPago");
+  const medioPago = watch("medioPago");
   const tipoDocumento = watch("tipoDocumento");
 
   async function enviar(values: FormOutput) {
@@ -504,6 +508,17 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial }: VentaForm
           />
         </div>
       </div>
+
+      {estadoPago === "pagado" && (
+        <div className="flex flex-col gap-2">
+          <Label>Medio de pago (cómo te pagaron)</Label>
+          <SelectField
+            value={medioPago}
+            onValueChange={(value) => setValue("medioPago", value as MedioPagoValor)}
+            options={[...MEDIOS_PAGO]}
+          />
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <Label>Tipo de documento</Label>

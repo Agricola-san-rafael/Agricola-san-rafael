@@ -49,6 +49,11 @@ enum EmpresaGasto {
   transporte
 }
 
+enum CajaTipo {
+  efectivo
+  banco
+}
+
 enum FormaPagoGasto {
   efectivo
   transferencia
@@ -230,6 +235,7 @@ model Cliente {
   cobros     MovimientoCobro[]
   prospectos Prospecto[]
   fletes     Flete[]
+  cuentasOrigen CuentaOrigenCliente[]
 
   @@index([empresa])
   @@map("clientes")
@@ -499,11 +505,32 @@ model AjusteCaja {
   fecha       DateTime @db.Date
   monto       Decimal  @db.Decimal(14, 2)
   motivo      String
+  /// En cuál de las dos cajas se hizo el ajuste: el efectivo o la plata en el banco.
+  caja        CajaTipo @default(efectivo)
   createdAt   DateTime @default(now()) @map("created_at")
   createdById String?  @map("created_by")
 
   @@index([fecha])
   @@map("ajustes_caja")
+}
+
+/// Cuentas desde las que paga cada cliente, para reconocer su cliente al leer un comprobante.
+model CuentaOrigenCliente {
+  id          String   @id @default(uuid())
+  clienteId   String   @map("cliente_id")
+  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  /// Banco de origen en minúsculas y sin acentos (bci, estado, santander...). Vacío si el comprobante no lo dice.
+  banco       String   @default("")
+  /// Últimos 4 dígitos: es lo único que muestran todos los comprobantes, aun los que ocultan la cuenta.
+  terminacion String
+  /// Como aparece en el comprobante, para mostrarla tal cual ("Cta. Vista ****8648").
+  descripcion String
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById String?  @map("created_by")
+
+  @@unique([banco, terminacion])
+  @@index([clienteId])
+  @@map("cuentas_origen_cliente")
 }
 
 /// Intentos de login fallidos, para bloquear temporalmente cuando alguien prueba contraseñas.

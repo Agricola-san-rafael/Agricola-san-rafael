@@ -9,19 +9,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { obtenerCliente, obtenerMovimientosCliente } from "@/modules/clientes/service";
+import { listarCuentasOrigen } from "@/modules/cobros/cuentas-cliente";
 import { formatCLP } from "@/modules/shared/money";
 import { formatDateCL } from "@/modules/shared/dates";
 import { NotFoundError } from "@/modules/shared/errors";
 import { ClienteForm } from "../cliente-form";
 import { CobroForm } from "./cobro-form";
+import { CuentasOrigen } from "./cuentas-origen";
 
 export default async function ClienteDetallePage({ params }: PageProps<"/clientes/[id]">) {
   const { id } = await params;
 
   try {
-    const [cliente, movimientos] = await Promise.all([
+    const [cliente, movimientos, cuentasOrigen] = await Promise.all([
       obtenerCliente(id),
       obtenerMovimientosCliente(id),
+      listarCuentasOrigen(id),
     ]);
 
     return (
@@ -56,6 +59,8 @@ export default async function ClienteDetallePage({ params }: PageProps<"/cliente
           <h2 className="mb-2 text-lg font-medium">Registrar cobro</h2>
           <CobroForm clienteId={cliente.id} />
         </div>
+
+        <CuentasOrigen clienteId={cliente.id} cuentas={cuentasOrigen} />
 
         <div>
           <h2 className="mb-2 text-lg font-medium">Historial de movimientos</h2>

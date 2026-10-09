@@ -141,7 +141,7 @@ export async function crearVenta(input: VentaInput, usuarioId: string, rol: RolU
             ventaId: venta.id,
             fecha: new Date(input.fecha),
             monto: total,
-            medioPago: "otro",
+            medioPago: input.medioPago ?? "otro",
             referencia: "Pago registrado automáticamente al crear la venta como pagada",
             createdById: usuarioId,
           },
