@@ -92,6 +92,7 @@ enum TipoAlerta {
   cxp_vencimiento
   sobreventa_stock
   gasto_pendiente
+  credito_excedido
 }
 
 enum EntidadAlerta {
@@ -223,6 +224,8 @@ model Cliente {
   direccion       String?
   condicionesPago CondicionPago? @map("condiciones_pago")
   plazoPagoDias   Int?           @map("plazo_pago_dias")
+  /// Tope de deuda que se le acepta al cliente (en pesos); sin valor = sin tope.
+  limiteCredito   Int?           @map("limite_credito")
   activo          Boolean        @default(true)
   /// A qué empresa pertenece: la agrícola (compradores de fruta) o el
   /// transporte (a quién se le hacen los fletes) — cada uno con su propia lista.

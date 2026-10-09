@@ -12,6 +12,11 @@ export const clienteSchema = z.object({
     (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
     z.number().int().min(0).optional()
   ),
+  limiteCredito: z.preprocess(
+    // En pesos se escribe "4.000.000": los puntos son separador de miles, no decimales.
+    (val) => (val === "" || val === undefined || val === null ? null : Number(String(val).replace(/\./g, ""))),
+    z.number().int().min(0).nullable()
+  ).optional(),
   activo: z.boolean().optional(),
   empresa: z.enum(["agricola", "transporte"]).default("agricola"),
 });

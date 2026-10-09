@@ -50,6 +50,15 @@ export default async function ClienteDetallePage({ params }: PageProps<"/cliente
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold">{formatCLP(cliente.saldoPendiente)}</p>
+            {cliente.limiteCredito !== null && (
+              <p
+                className={`mt-1 text-sm ${cliente.saldoPendiente > cliente.limiteCredito ? "text-destructive" : "text-muted-foreground"}`}
+              >
+                {cliente.saldoPendiente > cliente.limiteCredito
+                  ? `Se pasa ${formatCLP(cliente.saldoPendiente - cliente.limiteCredito)} de su límite de ${formatCLP(cliente.limiteCredito)}`
+                  : `Límite ${formatCLP(cliente.limiteCredito)} · le quedan ${formatCLP(cliente.limiteCredito - cliente.saldoPendiente)}`}
+              </p>
+            )}
           </CardContent>
         </Card>
 

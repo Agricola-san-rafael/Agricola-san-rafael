@@ -55,6 +55,7 @@ export function ClienteForm({
           direccion: cliente.direccion ?? undefined,
           condicionesPago: cliente.condicionesPago ?? undefined,
           plazoPagoDias: cliente.plazoPagoDias ?? undefined,
+          limiteCredito: cliente.limiteCredito ?? undefined,
           activo: cliente.activo,
         }
       : { activo: true, empresa },
@@ -155,6 +156,15 @@ export function ClienteForm({
           <NumericInput id="plazoPagoDias" {...register("plazoPagoDias")} />
         </div>
       )}
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="limiteCredito">Límite de crédito ($)</Label>
+        <NumericInput id="limiteCredito" {...register("limiteCredito")} />
+        <p className="text-xs text-muted-foreground">
+          Lo máximo que puede deberte. Si lo pasa te avisamos, y al venderle a crédito verás una advertencia.
+          Déjalo vacío si no tiene tope.
+        </p>
+      </div>
 
       {cliente && (
         <div className="flex items-center gap-2">

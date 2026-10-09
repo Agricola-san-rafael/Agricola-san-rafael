@@ -17,6 +17,7 @@ const TIPO_LABEL: Record<string, string> = {
   cxp_vencimiento: "Cuenta por pagar",
   sobreventa_stock: "Sobreventa de stock",
   gasto_pendiente: "Gasto pendiente",
+  credito_excedido: "Límite de crédito",
 };
 
 export default async function AlertasPage() {

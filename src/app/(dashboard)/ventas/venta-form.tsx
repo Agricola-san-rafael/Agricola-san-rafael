@@ -22,6 +22,7 @@ import { useOfflineDraft, reintentarAlReconectar } from "@/hooks/useOfflineDraft
 import { ventaSchema } from "@/modules/ventas/schema";
 import { clienteSchema } from "@/modules/clientes/schema";
 import { sugerirEntidad } from "@/modules/shared/sugerir-entidad";
+import { evaluarCredito } from "@/modules/clientes/credito";
 import type { VentaExtraida } from "@/modules/ventas/extraer-venta";
 import type { obtenerLotesDisponibles } from "@/modules/inventario/service";
 import type { Cliente } from "@/generated/prisma/client";
@@ -38,7 +39,17 @@ type FormInput = z.input<typeof ventaSchema>;
 type FormOutput = z.output<typeof ventaSchema>;
 type LoteDisponible = Awaited<ReturnType<typeof obtenerLotesDisponibles>>[number];
 
+/** Cuánto debe hoy cada cliente y cuándo tiene que pagar, para advertir antes de venderle a crédito. */
+export interface CreditoCliente {
+  saldo: number;
+  limite: number | null;
+  diasDeudaMasAntigua: number;
+  plazoDias: number;
+}
+
 interface VentaFormProps {
+  /** Por id de cliente; los que no deben nada no aparecen. */
+  creditos?: Record<string, CreditoCliente>;
   clientes: Cliente[];
   lotes: LoteDisponible[];
   esAdmin: boolean;
@@ -46,7 +57,7 @@ interface VentaFormProps {
   loteIdInicial?: string;
 }
 
-export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial }: VentaFormProps) {
+export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial, creditos = {} }: VentaFormProps) {
   const router = useRouter();
   const [kilosFaltantes, setKilosFaltantes] = useState<number | null>(null);
   const form = useForm<FormInput, unknown, FormOutput>({
@@ -255,6 +266,28 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial }: VentaForm
   const estadoPago = watch("estadoPago");
   const medioPago = watch("medioPago");
   const tipoDocumento = watch("tipoDocumento");
+  const kilosIngresados = watch("kilos");
+  const precioIngresado = watch("precioKg");
+
+  const avisosCredito = (() => {
+    if (!clienteId || estadoPago === "pagado") return [];
+    const credito = creditos[clienteId] ?? { saldo: 0, limite: null, diasDeudaMasAntigua: 0, plazoDias: 0 };
+    const numero = (v: unknown) => Number(String(v ?? "").replace(",", ".")) || 0;
+    const ventaNueva = Math.round(numero(kilosIngresados) * numero(precioIngresado));
+    const evaluacion = evaluarCredito({ ...credito, ventaNueva });
+    const avisos: string[] = [];
+    if (evaluacion.sobreLimite && credito.limite !== null) {
+      avisos.push(
+        `Con esta venta quedaría debiendo ${formatCLP(evaluacion.saldoConVenta)} y su límite de crédito es ${formatCLP(credito.limite)} (se pasa por ${formatCLP(evaluacion.exceso)}).`,
+      );
+    }
+    if (evaluacion.vencida) {
+      avisos.push(
+        `Ya debe ${formatCLP(credito.saldo)} y su deuda más antigua lleva ${credito.diasDeudaMasAntigua} días (su plazo es de ${credito.plazoDias}).`,
+      );
+    }
+    return avisos;
+  })();
 
   async function enviar(values: FormOutput) {
     let res: Response;
@@ -508,6 +541,20 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial }: VentaForm
           />
         </div>
       </div>
+
+      {avisosCredito.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTitle>Ojo con el crédito de este cliente</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-4">
+              {avisosCredito.map((aviso) => (
+                <li key={aviso}>{aviso}</li>
+              ))}
+            </ul>
+            <p className="mt-1">Puedes registrar la venta igual; es solo un aviso.</p>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {estadoPago === "pagado" && (
         <div className="flex flex-col gap-2">

@@ -12,6 +12,7 @@ const envSchema = z.object({
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   ALERTA_DIAS_ANTICIPACION: z.coerce.number().default(2),
+  ALERTA_DIAS_RECORDATORIO_FACTURA: z.coerce.number().default(3),
   ALERTA_DIAS_GASTO_PENDIENTE: z.coerce.number().default(5),
   ALERTA_DIAS_ATRASO_CLIENTE: z.coerce.number().default(30),
   NEON_API_KEY: z.string().optional(),
