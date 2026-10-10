@@ -177,25 +177,22 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial, creditos = 
 
   function prepararRevisionLote() {
     if (!ventaExtraida) return;
-    const sinLote: string[] = [];
-    const lineas = ventaExtraida.lineas
-      .map((linea) => {
-        const lote = resolverLote(linea);
-        if (!lote) {
-          sinLote.push(`${linea.variedad} ${linea.calibre} (${linea.kilos} kg)`);
-          return null;
-        }
-        return {
-          loteId: lote.id,
-          kilos: linea.kilos,
-          precioKg: linea.precioKg,
-          etiqueta: `${linea.variedad} ${linea.calibre}`,
-        };
-      })
-      .filter((l): l is NonNullable<typeof l> => l !== null);
+    let sinLote = 0;
+    const lineas = ventaExtraida.lineas.map((linea) => {
+      const lote = resolverLote(linea);
+      if (!lote) sinLote++;
+      return {
+        loteId: lote?.id ?? "",
+        kilos: linea.kilos,
+        precioKg: linea.precioKg,
+        etiqueta: `${linea.variedad} ${linea.calibre || "(sin calibre)"}`,
+      };
+    });
 
-    if (sinLote.length > 0) {
-      toast.error(`No encontré lote para: ${sinLote.join(", ")} — carga esas a mano`);
+    if (sinLote > 0) {
+      toast.info(
+        `${sinLote} línea(s) no traen calibre o no hay lote disponible — elige el lote de cada una antes de confirmar`
+      );
     }
     if (lineas.length === 0) return;
     setLineasRevision(lineas);
@@ -407,7 +404,7 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial, creditos = 
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              disabled={registrandoLote || lineasRevision.length === 0}
+              disabled={registrandoLote || lineasRevision.length === 0 || lineasRevision.some((l) => !l.loteId)}
               onClick={confirmarRegistroLote}
             >
               {registrandoLote ? "Registrando..." : `Confirmar y registrar ${lineasRevision.length} línea(s)`}
