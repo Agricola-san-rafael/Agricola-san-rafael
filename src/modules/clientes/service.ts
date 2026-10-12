@@ -56,6 +56,8 @@ export interface MovimientoCliente {
   fecha: Date;
   monto: number;
   detalle: string;
+  /** Foto del comprobante (solo cobros); null si no se adjuntó. */
+  comprobanteUrl?: string | null;
 }
 
 /** Historial cronológico de ventas + cobros de un cliente (reemplaza EstadoCuenta_*.xlsx). */
@@ -82,6 +84,7 @@ export async function obtenerMovimientosCliente(id: string): Promise<MovimientoC
       fecha: c.fecha,
       monto: -Number(c.monto),
       detalle: `Cobro (${c.medioPago})`,
+      comprobanteUrl: c.comprobanteUrl,
     })),
   ];
 

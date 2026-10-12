@@ -15,6 +15,7 @@ import { formatDateCL } from "@/modules/shared/dates";
 import { NotFoundError } from "@/modules/shared/errors";
 import { ClienteForm } from "../cliente-form";
 import { CobroForm } from "./cobro-form";
+import { ComprobanteCobro } from "./comprobante-cobro";
 import { CuentasOrigen } from "./cuentas-origen";
 
 export default async function ClienteDetallePage({ params }: PageProps<"/clientes/[id]">) {
@@ -81,6 +82,7 @@ export default async function ClienteDetallePage({ params }: PageProps<"/cliente
                   <TableHead>Tipo</TableHead>
                   <TableHead>Detalle</TableHead>
                   <TableHead className="text-right">Monto</TableHead>
+                  <TableHead>Comprobante</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -90,11 +92,16 @@ export default async function ClienteDetallePage({ params }: PageProps<"/cliente
                     <TableCell className="capitalize">{m.tipo}</TableCell>
                     <TableCell>{m.detalle}</TableCell>
                     <TableCell className="text-right">{formatCLP(m.monto)}</TableCell>
+                    <TableCell>
+                      {m.tipo === "cobro" && (
+                        <ComprobanteCobro cobroId={m.id} comprobanteUrl={m.comprobanteUrl ?? null} />
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
                 {movimientos.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       Sin movimientos todavía.
                     </TableCell>
                   </TableRow>

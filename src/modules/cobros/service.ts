@@ -41,3 +41,22 @@ export async function crearCobro(clienteId: string, input: CobroInput, creadoPor
     return cobro;
   });
 }
+
+/** Adjunta (o reemplaza) la foto del comprobante de un cobro que ya estaba registrado. */
+export async function adjuntarComprobanteCobro(cobroId: string, comprobanteUrl: string, usuarioId: string) {
+  const cobro = await prisma.movimientoCobro.findUnique({ where: { id: cobroId } });
+  if (!cobro) throw new NotFoundError("Cobro no encontrado");
+
+  return prisma.$transaction(async (tx) => {
+    const actualizado = await tx.movimientoCobro.update({ where: { id: cobroId }, data: { comprobanteUrl } });
+    await registrarAuditLog(tx, {
+      tabla: "movimientos_cobro",
+      registroId: cobroId,
+      accion: "update",
+      campoAntes: { comprobanteUrl: cobro.comprobanteUrl },
+      campoDespues: { comprobanteUrl },
+      usuarioId,
+    });
+    return actualizado;
+  });
+}
