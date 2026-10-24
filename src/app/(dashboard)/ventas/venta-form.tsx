@@ -100,6 +100,20 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial, creditos = 
   const [lineasRevision, setLineasRevision] = useState<
     { loteId: string; kilos: number; precioKg: number; etiqueta: string }[] | null
   >(null);
+  /** Productos adicionales de la misma venta; el primero es el de los campos Lote, Kilos y Precio de más abajo. */
+  const [lineasExtra, setLineasExtra] = useState<{ loteId: string; kilos: number; precioKg: number }[]>([]);
+
+  function agregarProducto() {
+    setLineasExtra((prev) => [...prev, { loteId: "", kilos: 0, precioKg: 0 }]);
+  }
+
+  function actualizarProducto(indice: number, cambios: Partial<(typeof lineasExtra)[number]>) {
+    setLineasExtra((prev) => prev.map((l, i) => (i === indice ? { ...l, ...cambios } : l)));
+  }
+
+  function quitarProducto(indice: number) {
+    setLineasExtra((prev) => prev.filter((_, i) => i !== indice));
+  }
 
   function aplicarDatosVenta(venta: VentaExtraida) {
     if (venta.fecha) setValue("fecha", venta.fecha);
@@ -266,11 +280,21 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial, creditos = 
   const kilosIngresados = watch("kilos");
   const precioIngresado = watch("precioKg");
 
+  const opcionesLotes = lotes.map((l) => ({
+    value: l.id,
+    label: `${l.sku} — ${l.variedad.nombre} ${l.calibre.codigo} — ${Number(l.kilosDisponibles)} kg disp. — ${formatCLP(Number(l.costoKg))}/kg — ${l.compra.proveedor.nombre}`,
+  }));
+  const totalVenta =
+    Math.round((Number(String(kilosIngresados ?? "").replace(",", ".")) || 0) * (Number(String(precioIngresado ?? "").replace(",", ".")) || 0)) +
+    lineasExtra.reduce((suma, l) => suma + Math.round(l.kilos * l.precioKg), 0);
+
   const avisosCredito = (() => {
     if (!clienteId || estadoPago === "pagado") return [];
     const credito = creditos[clienteId] ?? { saldo: 0, limite: null, diasDeudaMasAntigua: 0, plazoDias: 0 };
     const numero = (v: unknown) => Number(String(v ?? "").replace(",", ".")) || 0;
-    const ventaNueva = Math.round(numero(kilosIngresados) * numero(precioIngresado));
+    const ventaNueva =
+      Math.round(numero(kilosIngresados) * numero(precioIngresado)) +
+      lineasExtra.reduce((suma, l) => suma + Math.round(l.kilos * l.precioKg), 0);
     const evaluacion = evaluarCredito({ ...credito, ventaNueva });
     const avisos: string[] = [];
     if (evaluacion.sobreLimite && credito.limite !== null) {
@@ -319,8 +343,52 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial, creditos = 
     router.refresh();
   }
 
+  /** Varios productos en una venta: se guardan todos juntos o ninguno, así no queda la venta del cliente a medias. */
+  async function enviarVarios(values: FormOutput) {
+    if (lineasExtra.some((l) => !l.loteId || !(l.kilos > 0) || !(l.precioKg > 0))) {
+      toast.error("Completa el lote, los kilos y el precio de cada producto, o quita el que no uses");
+      return;
+    }
+    const ventas = [values, ...lineasExtra].map((linea) => ({
+      ...values,
+      forzarVenta: false,
+      loteId: linea.loteId,
+      kilos: linea.kilos,
+      precioKg: linea.precioKg,
+    }));
+
+    let res: Response;
+    try {
+      res = await fetch("/api/v1/ventas/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ventas }),
+      });
+    } catch {
+      toast.error("Sin conexión: no se registró nada. Vuelve a intentarlo cuando tengas internet");
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(
+        res.status === 409
+          ? `No alcanza el stock en uno de los lotes (faltan ${data.kilosFaltantes ?? "?"} kg). No se registró ningún producto.`
+          : (data.error ?? "No se pudo registrar la venta"),
+      );
+      return;
+    }
+    toast.success(`Venta registrada con ${ventas.length} productos`);
+    limpiarBorrador();
+    router.push("/ventas");
+    router.refresh();
+  }
+
   async function onSubmit(values: FormOutput) {
     setKilosFaltantes(null);
+    if (lineasExtra.length > 0) {
+      await enviarVarios(values);
+      return;
+    }
     await enviar(values);
   }
 
@@ -480,10 +548,7 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial, creditos = 
         <SelectField
           value={loteId}
           onValueChange={(value) => setValue("loteId", value ?? "")}
-          options={lotes.map((l) => ({
-            value: l.id,
-            label: `${l.sku} — ${l.variedad.nombre} ${l.calibre.codigo} — ${Number(l.kilosDisponibles)} kg disp. — ${formatCLP(Number(l.costoKg))}/kg — ${l.compra.proveedor.nombre}`,
-          }))}
+          options={opcionesLotes}
           placeholder="Selecciona el lote a vender"
         />
         {errors.loteId && <p className="text-sm text-destructive">{errors.loteId.message}</p>}
@@ -509,6 +574,58 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial, creditos = 
             <p className="text-sm text-destructive">{errors.precioKg.message}</p>
           )}
         </div>
+      </div>
+
+      {lineasExtra.map((linea, i) => {
+        const lote = lotes.find((l) => l.id === linea.loteId);
+        return (
+          <div key={i} className="flex flex-col gap-2 rounded-md border p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Producto {i + 2}</p>
+              <Button type="button" variant="ghost" size="sm" onClick={() => quitarProducto(i)}>
+                Quitar
+              </Button>
+            </div>
+            <SelectField
+              value={linea.loteId}
+              onValueChange={(value) => actualizarProducto(i, { loteId: value ?? "" })}
+              options={opcionesLotes}
+              placeholder="Selecciona el lote a vender"
+            />
+            {lote && (
+              <p className="text-xs text-muted-foreground">
+                Disponible: {Number(lote.kilosDisponibles)} kg · Costo: {formatCLP(Number(lote.costoKg))}/kg
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label>Kilos</Label>
+                <NumericInput
+                  value={linea.kilos || ""}
+                  onChange={(e) => actualizarProducto(i, { kilos: Number(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Precio por kilo</Label>
+                <NumericInput
+                  value={linea.precioKg || ""}
+                  onChange={(e) => actualizarProducto(i, { precioKg: Number(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" size="sm" onClick={agregarProducto}>
+          + Agregar otro producto
+        </Button>
+        {lineasExtra.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            Total de la venta ({lineasExtra.length + 1} productos): <span className="font-medium">{formatCLP(totalVenta)}</span>
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -621,7 +738,7 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial, creditos = 
       )}
 
       <Button type="submit" disabled={isSubmitting} className="mt-2 w-fit">
-        {isSubmitting ? "Guardando..." : "Registrar venta"}
+        {isSubmitting ? "Guardando..." : lineasExtra.length > 0 ? `Registrar venta (${lineasExtra.length + 1} productos)` : "Registrar venta"}
       </Button>
     </form>
   );
