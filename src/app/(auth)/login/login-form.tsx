@@ -44,7 +44,7 @@ export function LoginForm() {
       setErrorMsg(data.error ?? "No se pudo iniciar sesión");
       return;
     }
-    router.push("/dashboard");
+    router.push("/");
     router.refresh();
   }
 

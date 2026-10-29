@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getSession } from "@/lib/auth";
 import { listarVentas } from "@/modules/ventas/service";
 import { listarServiciosTransporte } from "@/modules/fletes/service";
 import { parsePageParams } from "@/modules/shared/pagination";
@@ -29,7 +30,7 @@ const FILTROS = [
   { value: "transporte", label: "Transportes San Rafael SpA" },
 ] as const;
 
-async function TablaVentasAgricola() {
+async function TablaVentasAgricola({ verGanancias }: { verGanancias: boolean }) {
   const { data: ventas } = await listarVentas(
     parsePageParams(new URLSearchParams({ pageSize: "50" })),
     {}
@@ -50,7 +51,7 @@ async function TablaVentasAgricola() {
               <TableHead>Variedad / Calibre</TableHead>
               <TableHead>Kilos</TableHead>
               <TableHead>Total</TableHead>
-              <TableHead>Margen</TableHead>
+              {verGanancias && <TableHead>Margen</TableHead>}
               <TableHead>Estado</TableHead>
             </TableRow>
           </TableHeader>
@@ -78,7 +79,7 @@ async function TablaVentasAgricola() {
                 </TableCell>
                 <TableCell>{Number(v.kilos)} kg</TableCell>
                 <TableCell>{formatCLP(Number(v.total))}</TableCell>
-                <TableCell>{formatCLP(Number(v.margen))}</TableCell>
+                {verGanancias && <TableCell>{formatCLP(Number(v.margen))}</TableCell>}
                 <TableCell>
                   <Badge variant={ESTADO_VARIANT[v.estadoPago]}>{v.estadoPago}</Badge>
                 </TableCell>
@@ -86,7 +87,7 @@ async function TablaVentasAgricola() {
             ))}
             {ventas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={verGanancias ? 7 : 6} className="text-center text-muted-foreground">
                   Sin ventas registradas todavía.
                 </TableCell>
               </TableRow>
@@ -158,31 +159,36 @@ export default async function VentasPage({
   searchParams: Promise<{ empresa?: string }>;
 }) {
   const { empresa } = await searchParams;
-  const filtro = empresa === "agricola" || empresa === "transporte" ? empresa : "todos";
+  const session = await getSession();
+  // El operador solo registra la fruta de la agrícola: no ve ganancias ni los servicios del transporte.
+  const esOperador = session?.rol === "operador";
+  const filtro = esOperador ? "agricola" : empresa === "agricola" || empresa === "transporte" ? empresa : "todos";
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Ventas</h1>
 
-      <div className="flex flex-wrap gap-1 border-b pb-2">
-        {FILTROS.map((f) => {
-          const activo = filtro === f.value;
-          return (
-            <Link
-              key={f.value}
-              href={f.value === "todos" ? "/ventas" : `/ventas?empresa=${f.value}`}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm",
-                activo ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50"
-              )}
-            >
-              {f.label}
-            </Link>
-          );
-        })}
-      </div>
+      {!esOperador && (
+        <div className="flex flex-wrap gap-1 border-b pb-2">
+          {FILTROS.map((f) => {
+            const activo = filtro === f.value;
+            return (
+              <Link
+                key={f.value}
+                href={f.value === "todos" ? "/ventas" : `/ventas?empresa=${f.value}`}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm",
+                  activo ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50"
+                )}
+              >
+                {f.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
-      {(filtro === "todos" || filtro === "agricola") && <TablaVentasAgricola />}
+      {(filtro === "todos" || filtro === "agricola") && <TablaVentasAgricola verGanancias={!esOperador} />}
       {(filtro === "todos" || filtro === "transporte") && <TablaServiciosTransporte />}
     </div>
   );

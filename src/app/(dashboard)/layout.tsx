@@ -71,11 +71,26 @@ function navGroups(alertasPendientes: number, esAdmin: boolean): NavGroup[] {
   ];
 }
 
+/** El operador solo registra compras y ventas: su menú no tiene nada más. */
+function navOperador(): NavGroup[] {
+  return [
+    {
+      label: "Agrícola San Rafael",
+      items: [
+        { href: "/compras", label: "Compras", iconKey: "compras" },
+        { href: "/ventas?empresa=agricola", label: "Ventas", iconKey: "ventas" },
+      ],
+    },
+  ];
+}
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  const alertasPendientes = await contarAlertasPendientes();
-  const NAV_GROUPS = navGroups(alertasPendientes, session.rol === "admin");
+  const NAV_GROUPS =
+    session.rol === "operador"
+      ? navOperador()
+      : navGroups(await contarAlertasPendientes(), session.rol === "admin");
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -93,7 +108,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         ))}
       </nav>
       <main className="flex-1 p-4 pb-20 md:pb-4">{children}</main>
-      <BottomNav groups={NAV_GROUPS} />
+      <BottomNav groups={NAV_GROUPS} esOperador={session.rol === "operador"} />
     </div>
   );
 }

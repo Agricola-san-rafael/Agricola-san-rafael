@@ -19,7 +19,7 @@ import { SelectField } from "@/components/forms/select-field";
 
 const ROLES = [
   { value: "admin", label: "Admin" },
-  { value: "operador", label: "Operador" },
+  { value: "operador", label: "Operador (solo registra compras y ventas)" },
   { value: "solo_lectura", label: "Solo lectura" },
 ];
 

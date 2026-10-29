@@ -20,6 +20,8 @@ import { obtenerFletePorVenta } from "@/modules/fletes/service";
 export default async function VentaDetallePage({ params }: PageProps<"/ventas/[id]">) {
   const { id } = await params;
   const session = await getSession();
+  // El operador ve el costo y el precio de venta, pero no lo que se gana.
+  const verGanancias = session?.rol !== "operador";
 
   try {
     const venta = await obtenerVenta(id);
@@ -55,7 +57,7 @@ export default async function VentaDetallePage({ params }: PageProps<"/ventas/[i
           )}
         </div>
 
-        <div className="grid max-w-2xl grid-cols-3 gap-4">
+        <div className={`grid max-w-2xl gap-4 ${verGanancias ? "grid-cols-3" : "grid-cols-2"}`}>
           <Card>
             <CardHeader>
               <CardTitle>Total</CardTitle>
@@ -67,22 +69,24 @@ export default async function VentaDetallePage({ params }: PageProps<"/ventas/[i
               </p>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Margen</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{formatCLP(Number(venta.margen))}</p>
-              <p className="text-sm text-muted-foreground">
-                {(Number(venta.margenPct) * 100).toFixed(1)}%
-              </p>
-              {flete > 0 && (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Flete {formatCLP(flete)} · utilidad real {formatCLP(Number(venta.margen) - flete)}
+          {verGanancias && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Margen</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold">{formatCLP(Number(venta.margen))}</p>
+                <p className="text-sm text-muted-foreground">
+                  {(Number(venta.margenPct) * 100).toFixed(1)}%
                 </p>
-              )}
-            </CardContent>
-          </Card>
+                {flete > 0 && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Flete {formatCLP(flete)} · utilidad real {formatCLP(Number(venta.margen) - flete)}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Estado de pago</CardTitle>

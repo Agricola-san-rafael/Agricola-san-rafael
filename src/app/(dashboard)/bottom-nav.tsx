@@ -15,6 +15,8 @@ import type { NavGroup } from "./layout";
 
 interface BottomNavProps {
   groups: NavGroup[];
+  /** El operador solo registra compras y ventas: sin Inicio (dashboard) ni Gasto. */
+  esOperador?: boolean;
 }
 
 const ITEMS_PRINCIPALES = [
@@ -29,12 +31,15 @@ const ITEMS_PRINCIPALES = [
  * compra/venta/gasto en menos de 3 pasos desde cualquier pantalla). Solo
  * visible bajo el breakpoint `md` — en desktop se usa el nav horizontal.
  */
-export function BottomNav({ groups }: BottomNavProps) {
+export function BottomNav({ groups, esOperador = false }: BottomNavProps) {
   const [abierto, setAbierto] = useState(false);
+  const itemsPrincipales = esOperador
+    ? ITEMS_PRINCIPALES.filter((item) => item.href === "/compras/nueva" || item.href === "/ventas/nueva")
+    : ITEMS_PRINCIPALES;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background md:hidden print:hidden">
-      {ITEMS_PRINCIPALES.map((item) => (
+      {itemsPrincipales.map((item) => (
         <Link
           key={item.href}
           href={item.href}
