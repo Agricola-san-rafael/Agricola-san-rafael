@@ -1,7 +1,8 @@
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
+import { avisarClienteNuevo } from "@/modules/avisos/correos";
 import { handleApiError } from "@/modules/shared/http";
 import { parsePageParams } from "@/modules/shared/pagination";
 import { clienteSchema } from "@/modules/clientes/schema";
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
     const session = await requireSession();
     const { empresa, ...rest } = clienteSchema.parse(await request.json());
     const cliente = await crearCliente(rest, session.userId, empresa);
+    after(() => avisarClienteNuevo(cliente, session));
     return NextResponse.json(cliente, { status: 201 });
   } catch (error) {
     return handleApiError(error);

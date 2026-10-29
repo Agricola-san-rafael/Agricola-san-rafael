@@ -20,6 +20,12 @@ const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),
+  SMTP_HOST: z.string().default("smtp.gmail.com"),
+  SMTP_PORT: z.coerce.number().default(465),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  CORREO_REMITENTE: z.string().default("Agrícola San Rafael <administracion@agsanrafael.com>"),
+  CORREO_AVISOS: z.string().default("administracion@agsanrafael.com"),
 });
 
 export const env = envSchema.parse(process.env);
