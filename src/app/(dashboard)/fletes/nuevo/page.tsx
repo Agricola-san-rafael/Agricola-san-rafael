@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { listarTodosLosClientes } from "@/modules/clientes/service";
 import { formatDateCL } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
 import { obtenerParametrosTransporte } from "@/modules/fletes/parametros";
@@ -24,10 +25,7 @@ export default async function NuevoFletePage({
       take: 80,
       include: { cliente: { select: { nombre: true } }, calibre: { select: { codigo: true } } },
     }),
-    prisma.cliente.findMany({
-      where: { empresa: "transporte", activo: true },
-      orderBy: { nombre: "asc" },
-    }),
+    listarTodosLosClientes("transporte", true),
     obtenerParametrosTransporte(),
   ]);
 

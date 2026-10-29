@@ -1,12 +1,8 @@
-import { listarClientes } from "@/modules/clientes/service";
-import { parsePageParams } from "@/modules/shared/pagination";
+import { listarTodosLosClientes } from "@/modules/clientes/service";
 import { ClienteForm } from "../../../clientes/cliente-form";
 
 export default async function NuevoClienteTransportePage() {
-  const { data: clientesExistentes } = await listarClientes(
-    parsePageParams(new URLSearchParams({ pageSize: "100" })),
-    "transporte"
-  );
+  const clientesExistentes = await listarTodosLosClientes("transporte");
 
   return (
     <div className="flex flex-col gap-4">

@@ -21,6 +21,7 @@ import { formatCLP } from "@/modules/shared/money";
 import { useOfflineDraft, reintentarAlReconectar } from "@/hooks/useOfflineDraft";
 import { ventaSchema } from "@/modules/ventas/schema";
 import { clienteSchema } from "@/modules/clientes/schema";
+import { ordenarPorNombre } from "@/modules/shared/orden";
 import { sugerirEntidad } from "@/modules/shared/sugerir-entidad";
 import { evaluarCredito } from "@/modules/clientes/credito";
 import type { VentaExtraida } from "@/modules/ventas/extraer-venta";
@@ -147,7 +148,7 @@ export function VentaForm({ clientes, lotes, esAdmin, loteIdInicial, creditos = 
         toast.error(data.error ?? "No se pudo crear el cliente");
         return;
       }
-      setClientesLocal((prev) => [...prev, data]);
+      setClientesLocal((prev) => ordenarPorNombre([...prev, data]));
       setValue("clienteId", data.id);
       setClienteNuevoNombre("");
       setClienteNuevoRut("");

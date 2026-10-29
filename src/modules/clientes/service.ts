@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { EmpresaGasto } from "@/generated/prisma/client";
 import { NotFoundError } from "@/modules/shared/errors";
+import { ordenarPorNombre } from "@/modules/shared/orden";
 import { paginatedResponse, type PageParams } from "@/modules/shared/pagination";
 import type { ClienteInput, ClienteUpdateInput } from "./schema";
 
@@ -10,18 +11,15 @@ interface SaldoClienteRow {
   saldo_pendiente: string;
 }
 
-export async function listarClientes(params: PageParams, empresa: EmpresaGasto, activo?: boolean) {
+/** Todos los clientes de una empresa, en orden alfabético. */
+export async function listarTodosLosClientes(empresa: EmpresaGasto, activo?: boolean) {
   const where = { empresa, ...(activo === undefined ? {} : { activo }) };
-  const [data, total] = await Promise.all([
-    prisma.cliente.findMany({
-      where,
-      orderBy: { nombre: "asc" },
-      skip: params.skip,
-      take: params.take,
-    }),
-    prisma.cliente.count({ where }),
-  ]);
-  return paginatedResponse(data, total, params);
+  return ordenarPorNombre(await prisma.cliente.findMany({ where }));
+}
+
+export async function listarClientes(params: PageParams, empresa: EmpresaGasto, activo?: boolean) {
+  const todos = await listarTodosLosClientes(empresa, activo);
+  return paginatedResponse(todos.slice(params.skip, params.skip + params.take), todos.length, params);
 }
 
 export async function obtenerSaldoCliente(id: string): Promise<number> {

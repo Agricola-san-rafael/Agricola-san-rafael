@@ -1,15 +1,14 @@
 import { getSession } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { obtenerPorCobrar } from "@/modules/cobros/por-cobrar";
-import { listarClientes } from "@/modules/clientes/service";
+import { listarTodosLosClientes } from "@/modules/clientes/service";
 import { obtenerLotesDisponibles } from "@/modules/inventario/service";
-import { parsePageParams } from "@/modules/shared/pagination";
 import { VentaForm } from "../venta-form";
 
 export default async function NuevaVentaPage({ searchParams }: PageProps<"/ventas/nueva">) {
-  const [session, { data: clientes }, lotes, params, porCobrar] = await Promise.all([
+  const [session, clientes, lotes, params, porCobrar] = await Promise.all([
     getSession(),
-    listarClientes(parsePageParams(new URLSearchParams({ pageSize: "100" })), "agricola", true),
+    listarTodosLosClientes("agricola", true),
     obtenerLotesDisponibles(),
     searchParams,
     obtenerPorCobrar(),

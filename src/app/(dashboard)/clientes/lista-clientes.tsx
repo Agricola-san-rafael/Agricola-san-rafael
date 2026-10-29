@@ -9,16 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { parsePageParams } from "@/modules/shared/pagination";
-import { listarClientes } from "@/modules/clientes/service";
+import { listarTodosLosClientes } from "@/modules/clientes/service";
 import type { EmpresaGasto } from "@/generated/prisma/client";
 
 /** Lista de clientes de una empresa (agrícola o transporte); cada una tiene la suya propia. */
 export async function ListaClientes({ empresa, basePath }: { empresa: EmpresaGasto; basePath: string }) {
-  const { data: clientes } = await listarClientes(
-    parsePageParams(new URLSearchParams({ pageSize: "50" })),
-    empresa
-  );
+  const clientes = await listarTodosLosClientes(empresa);
 
   return (
     <div className="flex flex-col gap-4">
