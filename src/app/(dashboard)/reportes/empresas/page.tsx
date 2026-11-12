@@ -90,6 +90,7 @@ export default async function EmpresasPage({ searchParams }: { searchParams: Pro
             ["Chofer", t.costoChofer, "resta"],
             ["Peajes", t.costoPeajes, "resta"],
             ["Otros costos del viaje", t.costoOtros, "resta"],
+            ["Gastos adicionales en ruta", t.costoGastosRuta, "resta"],
             ["Utilidad de los viajes", t.utilidadDeViajes, "total"],
             ["Gastos de la empresa (puesta en marcha y fijos)", t.gastos, "resta"],
           ]}

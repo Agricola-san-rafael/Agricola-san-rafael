@@ -3,13 +3,16 @@ import { Prisma } from "@/generated/prisma/client";
 import { NotFoundError } from "@/modules/shared/errors";
 import { registrarAuditLog } from "@/modules/shared/audit";
 import { calcularFletePorVenta, costoParaAgricola } from "./imputacion";
-import type { FleteInput } from "./schema";
+import { sumarGastosRuta, type FleteInput, type GastoRutaInput } from "./schema";
 
 export async function crearFlete(input: FleteInput, creadoPor: string) {
+  const gastosRuta = input.gastosRuta ?? [];
+  const costoGastosRuta = new Prisma.Decimal(sumarGastosRuta(gastosRuta));
   const costoTotal = new Prisma.Decimal(input.costoCombustible)
     .add(input.costoChofer)
     .add(input.costoPeajes)
-    .add(input.costoOtros);
+    .add(input.costoOtros)
+    .add(costoGastosRuta);
 
   return prisma.$transaction(async (tx) => {
     const flete = await tx.flete.create({
@@ -34,7 +37,15 @@ export async function crearFlete(input: FleteInput, creadoPor: string) {
         costoChofer: new Prisma.Decimal(input.costoChofer),
         costoPeajes: new Prisma.Decimal(input.costoPeajes),
         costoOtros: new Prisma.Decimal(input.costoOtros),
+        costoGastosRuta,
         costoTotal,
+        gastosRuta: {
+          create: gastosRuta.map((g) => ({
+            descripcion: g.descripcion,
+            monto: new Prisma.Decimal(g.monto),
+            createdById: creadoPor,
+          })),
+        },
         tarifaCobrada: input.tarifaCobrada !== undefined ? new Prisma.Decimal(input.tarifaCobrada) : undefined,
         observaciones: input.observaciones,
         createdById: creadoPor,
@@ -56,10 +67,69 @@ export async function crearFlete(input: FleteInput, creadoPor: string) {
       tabla: "fletes",
       registroId: flete.id,
       accion: "create",
-      campoDespues: { tipo: flete.tipo, costoTotal: costoTotal.toNumber(), tarifaCobrada: input.tarifaCobrada ?? null },
+      campoDespues: {
+        tipo: flete.tipo,
+        costoTotal: costoTotal.toNumber(),
+        tarifaCobrada: input.tarifaCobrada ?? null,
+        gastosRuta: gastosRuta.length ? gastosRuta : undefined,
+      },
       usuarioId: creadoPor,
     });
     return flete;
+  });
+}
+
+/** Recalcula la suma de gastos en ruta del viaje y su costo total. */
+async function recalcularCostoViaje(tx: Prisma.TransactionClient, fleteId: string) {
+  const flete = await tx.flete.findUnique({ where: { id: fleteId } });
+  if (!flete) throw new NotFoundError("Viaje no encontrado");
+  const suma = await tx.gastoRutaFlete.aggregate({ where: { fleteId }, _sum: { monto: true } });
+  const costoGastosRuta = suma._sum.monto ?? new Prisma.Decimal(0);
+  const costoTotal = flete.costoCombustible
+    .add(flete.costoChofer)
+    .add(flete.costoPeajes)
+    .add(flete.costoOtros)
+    .add(costoGastosRuta);
+  await tx.flete.update({ where: { id: fleteId }, data: { costoGastosRuta, costoTotal } });
+  return { antes: flete.costoTotal.toNumber(), despues: costoTotal.toNumber() };
+}
+
+/** Agrega un gasto en ruta a un viaje ya registrado y lo suma a su costo. */
+export async function agregarGastoRuta(fleteId: string, input: GastoRutaInput, usuarioId: string) {
+  return prisma.$transaction(async (tx) => {
+    const flete = await tx.flete.findUnique({ where: { id: fleteId }, select: { id: true } });
+    if (!flete) throw new NotFoundError("Viaje no encontrado");
+    const gasto = await tx.gastoRutaFlete.create({
+      data: { fleteId, descripcion: input.descripcion, monto: new Prisma.Decimal(input.monto), createdById: usuarioId },
+    });
+    const costo = await recalcularCostoViaje(tx, fleteId);
+    await registrarAuditLog(tx, {
+      tabla: "gastos_ruta_flete",
+      registroId: gasto.id,
+      accion: "create",
+      campoDespues: { fleteId, descripcion: input.descripcion, monto: input.monto, costoViaje: costo },
+      usuarioId,
+    });
+    return gasto;
+  });
+}
+
+/** Quita un gasto en ruta y lo descuenta del costo del viaje. */
+export async function eliminarGastoRuta(fleteId: string, gastoId: string, usuarioId: string) {
+  return prisma.$transaction(async (tx) => {
+    const gasto = await tx.gastoRutaFlete.findUnique({ where: { id: gastoId } });
+    if (!gasto || gasto.fleteId !== fleteId) throw new NotFoundError("Gasto no encontrado");
+    await tx.gastoRutaFlete.delete({ where: { id: gastoId } });
+    const costo = await recalcularCostoViaje(tx, fleteId);
+    await registrarAuditLog(tx, {
+      tabla: "gastos_ruta_flete",
+      registroId: gastoId,
+      accion: "delete",
+      campoAntes: { fleteId, descripcion: gasto.descripcion, monto: gasto.monto.toNumber() },
+      campoDespues: { costoViaje: costo },
+      usuarioId,
+    });
+    return { id: gastoId };
   });
 }
 

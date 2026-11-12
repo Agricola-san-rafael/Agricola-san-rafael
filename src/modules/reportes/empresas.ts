@@ -21,6 +21,7 @@ export interface UtilidadEmpresas {
     costoChofer: number;
     costoPeajes: number;
     costoOtros: number;
+    costoGastosRuta: number;
     costoReal: number;
     utilidadDeViajes: number;
     gastos: number;
@@ -57,7 +58,7 @@ export async function obtenerUtilidadPorEmpresa(periodo: Periodo): Promise<Utili
     }
   }
 
-  const t = { ingresosDeLaAgricola: 0, ingresosDeTerceros: 0, costoCombustible: 0, costoChofer: 0, costoPeajes: 0, costoOtros: 0 };
+  const t = { ingresosDeLaAgricola: 0, ingresosDeTerceros: 0, costoCombustible: 0, costoChofer: 0, costoPeajes: 0, costoOtros: 0, costoGastosRuta: 0 };
   for (const f of fletes) {
     const tarifa = f.tarifaCobrada === null ? null : n(f.tarifaCobrada);
     if (f.tipo === "tercero") t.ingresosDeTerceros += tarifa ?? 0;
@@ -66,8 +67,9 @@ export async function obtenerUtilidadPorEmpresa(periodo: Periodo): Promise<Utili
     t.costoChofer += n(f.costoChofer);
     t.costoPeajes += n(f.costoPeajes);
     t.costoOtros += n(f.costoOtros);
+    t.costoGastosRuta += n(f.costoGastosRuta);
   }
-  const costoReal = t.costoCombustible + t.costoChofer + t.costoPeajes + t.costoOtros;
+  const costoReal = t.costoCombustible + t.costoChofer + t.costoPeajes + t.costoOtros + t.costoGastosRuta;
   const ingresos = t.ingresosDeLaAgricola + t.ingresosDeTerceros;
 
   const ventasTotal = n(ventas._sum.total);

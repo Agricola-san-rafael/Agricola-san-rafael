@@ -461,6 +461,8 @@ model Flete {
   costoChofer      Decimal   @default(0) @map("costo_chofer") @db.Decimal(12, 2)
   costoPeajes      Decimal   @default(0) @map("costo_peajes") @db.Decimal(12, 2)
   costoOtros       Decimal   @default(0) @map("costo_otros") @db.Decimal(12, 2)
+  /// Suma de los gastos adicionales en ruta (detalle en gastos_ruta_flete).
+  costoGastosRuta  Decimal   @default(0) @map("costo_gastos_ruta") @db.Decimal(12, 2)
   costoTotal       Decimal   @map("costo_total") @db.Decimal(12, 2)
   tarifaCobrada    Decimal?  @map("tarifa_cobrada") @db.Decimal(12, 2)
   km               Decimal?  @db.Decimal(8, 2)
@@ -476,12 +478,28 @@ model Flete {
   createdById      String?   @map("created_by")
 
   movimientosChofer MovimientoChofer[]
+  gastosRuta        GastoRutaFlete[]
 
   @@index([fecha])
   @@index([compraId])
   @@index([ventaId])
   @@index([clienteId])
   @@map("fletes")
+}
+
+/// Gasto adicional de un viaje hecho en el camino (almuerzo, estacionamiento,
+/// reparación, etc.). Se suma al costo del viaje.
+model GastoRutaFlete {
+  id          String   @id @default(uuid())
+  fleteId     String   @map("flete_id")
+  flete       Flete    @relation(fields: [fleteId], references: [id], onDelete: Cascade)
+  descripcion String
+  monto       Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById String?  @map("created_by")
+
+  @@index([fleteId])
+  @@map("gastos_ruta_flete")
 }
 
 /// Plata que la agrícola le presta al transporte (o que le devuelve). Monto

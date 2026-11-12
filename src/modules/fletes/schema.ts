@@ -12,6 +12,22 @@ const montoOpcional = z.preprocess(
 
 const textoOpcional = z.string().trim().optional().transform((v) => (v ? v : undefined));
 
+/** Un gasto adicional hecho en el camino (almuerzo, estacionamiento, reparación...). */
+export const gastoRutaSchema = z.object({
+  descripcion: z.string().trim().min(1, "Describe el gasto").max(200),
+  monto: z.preprocess(
+    (val) => (val === "" || val === undefined || val === null ? undefined : Number(val)),
+    z.number({ message: "Ingresa el monto" }).positive("El monto debe ser mayor a cero"),
+  ),
+});
+
+export type GastoRutaInput = z.infer<typeof gastoRutaSchema>;
+
+/** Suma de los gastos en ruta, en pesos. */
+export function sumarGastosRuta(gastos: { monto: number }[]): number {
+  return gastos.reduce((acc, g) => acc + g.monto, 0);
+}
+
 export const fleteSchema = z
   .object({
     fecha: z.string().min(1, "La fecha es obligatoria"),
@@ -33,6 +49,7 @@ export const fleteSchema = z
     costoChofer: monto,
     costoPeajes: monto,
     costoOtros: monto,
+    gastosRuta: z.array(gastoRutaSchema).default([]),
     tarifaCobrada: montoOpcional,
     observaciones: textoOpcional,
   })
@@ -49,7 +66,8 @@ export const fleteSchema = z
     if (f.tipo === "tercero" && !f.tarifaCobrada) {
       ctx.addIssue({ code: "custom", path: ["tarifaCobrada"], message: "Indica cuánto se cobró" });
     }
-    if (f.costoCombustible + f.costoChofer + f.costoPeajes + f.costoOtros <= 0 && !f.tarifaCobrada) {
+    const costo = f.costoCombustible + f.costoChofer + f.costoPeajes + f.costoOtros + sumarGastosRuta(f.gastosRuta);
+    if (costo <= 0 && !f.tarifaCobrada) {
       ctx.addIssue({ code: "custom", path: ["costoCombustible"], message: "Ingresa el costo del viaje o la tarifa cobrada" });
     }
   });

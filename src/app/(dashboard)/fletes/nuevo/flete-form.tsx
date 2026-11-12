@@ -12,6 +12,7 @@ import { SelectField } from "@/components/forms/select-field";
 import { todayLocalISODate } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
 import { calcularSugeridoPorKm } from "@/modules/fletes/consumo";
+import { GastosRutaEditor, type GastoRutaBorrador } from "../gastos-ruta-editor";
 
 const OTRO_CLIENTE = "__otro__";
 
@@ -63,15 +64,27 @@ export function FleteForm({
   const [chofer, setChofer] = useState("");
   const [peajes, setPeajes] = useState("");
   const [otros, setOtros] = useState("");
+  const [gastosRuta, setGastosRuta] = useState<GastoRutaBorrador[]>([]);
   const [tarifa, setTarifa] = useState("");
   const [observaciones, setObservaciones] = useState("");
 
-  const costoTotal = num(combustible) + num(chofer) + num(peajes) + num(otros);
+  const gastosRutaValidos = gastosRuta
+    .map((g) => ({ descripcion: g.descripcion.trim(), monto: num(g.monto) }))
+    .filter((g) => g.descripcion && g.monto > 0);
+  const totalGastosRuta = gastosRutaValidos.reduce((a, g) => a + g.monto, 0);
+  const gastosRutaIncompletos = gastosRuta.some(
+    (g) => (g.descripcion.trim() || g.monto.trim()) && !(g.descripcion.trim() && num(g.monto) > 0),
+  );
+  const costoTotal = num(combustible) + num(chofer) + num(peajes) + num(otros) + totalGastosRuta;
   const kmNum = num(km);
   const combustibleSugerido = calcularSugeridoPorKm(kmNum || undefined, parametros.combustiblePorKm);
   const tarifaSugerida = calcularSugeridoPorKm(kmNum || undefined, parametros.tarifaPorKm);
 
   async function guardar() {
+    if (gastosRutaIncompletos) {
+      toast.error("Completa la descripción y el monto de cada gasto en ruta, o quita la fila");
+      return;
+    }
     setEnviando(true);
     try {
       const res = await fetch("/api/v1/fletes", {
@@ -85,6 +98,7 @@ export function FleteForm({
           terceroNombre: tercero, origen, destino, kilos, vehiculo, km, chofer: nombreChofer, estadoCobro, nFactura,
           totalFacturado: totalFacturado ? num(totalFacturado) : undefined,
           costoCombustible: num(combustible), costoChofer: num(chofer), costoPeajes: num(peajes), costoOtros: num(otros),
+          gastosRuta: gastosRutaValidos,
           tarifaCobrada: tarifa ? num(tarifa) : undefined, observaciones,
         }),
       });
@@ -210,6 +224,16 @@ export function FleteForm({
             <Label>Otros</Label>
             <Input inputMode="decimal" value={otros} onChange={(e) => setOtros(e.target.value)} />
           </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-2 border-t pt-3">
+          <Label>Gastos adicionales en ruta</Label>
+          <p className="text-xs text-muted-foreground">
+            Lo que se gastó en el camino: almuerzo, estacionamiento, una reparación, etc. Se suma al costo del viaje.
+          </p>
+          <GastosRutaEditor gastos={gastosRuta} onChange={setGastosRuta} />
+          {totalGastosRuta > 0 && (
+            <p className="text-sm text-muted-foreground">Total gastos en ruta: {formatCLP(totalGastosRuta)}</p>
+          )}
         </div>
         <p className="mt-2 text-sm text-muted-foreground">Costo total del viaje: {formatCLP(costoTotal)}</p>
       </div>

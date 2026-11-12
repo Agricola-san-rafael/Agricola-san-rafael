@@ -9,6 +9,7 @@ import { formatCLP } from "@/modules/shared/money";
 import { formatDateCL } from "@/modules/shared/dates";
 import { BorrarFlete } from "./borrar-flete";
 import { MarcarCobrado } from "./marcar-cobrado";
+import { GastosRutaViaje } from "./gastos-ruta-viaje";
 
 const TIPO: Record<string, string> = { compra: "Compra", venta: "Venta", tercero: "Tercero" };
 
@@ -26,6 +27,7 @@ export default async function FletesPage() {
       include: {
         compra: { select: { proveedor: { select: { nombre: true } } } },
         venta: { select: { cliente: { select: { nombre: true } } } },
+        gastosRuta: { orderBy: { createdAt: "asc" }, select: { id: true, descripcion: true, monto: true } },
       },
     }),
   ]);
@@ -136,7 +138,17 @@ export default async function FletesPage() {
                     <MarcarCobrado id={f.id} />
                   )}
                 </TableCell>
-                <TableCell className="text-right">{session?.rol === "admin" && <BorrarFlete id={f.id} />}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    <GastosRutaViaje
+                      fleteId={f.id}
+                      recorrido={`${formatDateCL(f.fecha)} · ${[f.origen, f.destino].filter(Boolean).join(" → ") || "viaje"}`}
+                      gastos={f.gastosRuta.map((g) => ({ id: g.id, descripcion: g.descripcion, monto: Number(g.monto) }))}
+                      puedeEditar={session?.rol === "admin"}
+                    />
+                    {session?.rol === "admin" && <BorrarFlete id={f.id} />}
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
             {fletes.length === 0 && (
