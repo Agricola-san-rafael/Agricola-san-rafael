@@ -18,6 +18,7 @@ export const config = {
     "/por-cobrar/:path*",
     "/por-pagar/:path*",
     "/proveedores/:path*",
+    "/publicidad/:path*",
     "/reportes/:path*",
     "/ventas/:path*",
     "/api/v1/:path*",

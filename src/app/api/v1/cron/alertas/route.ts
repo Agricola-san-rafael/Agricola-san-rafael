@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { generarAlertas } from "@/modules/alertas/generar-alertas";
 import { enviarAlertasPendientes } from "@/modules/alertas/service";
 import { generarCostosFijosDelDia } from "@/modules/fletes/costos-fijos";
+import { avisarPublicidadDelDia } from "@/modules/publicidad/service";
 
 /**
  * Vercel Cron Jobs llaman por GET e incluyen automáticamente
@@ -24,7 +25,9 @@ async function ejecutar() {
   const generadas = await generarAlertas();
   const enviadas = await enviarAlertasPendientes();
   const costosFijos = await generarCostosFijosDelDia();
-  return { ...generadas, ...enviadas, costosFijosCreados: costosFijos.creados };
+  // Un fallo del aviso de publicidad no debe tumbar las alertas ni los costos fijos.
+  const publicidad = await avisarPublicidadDelDia().catch(() => ({ total: 0, enviados: 0 }));
+  return { ...generadas, ...enviadas, costosFijosCreados: costosFijos.creados, publicidadAvisos: publicidad.enviados };
 }
 
 export async function GET(request: Request) {

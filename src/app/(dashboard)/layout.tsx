@@ -34,6 +34,7 @@ function navGroups(alertasPendientes: number, esAdmin: boolean): NavGroup[] {
         { href: "/flujo-caja", label: "Flujo de caja", iconKey: "flujoCaja" },
         { href: "/alertas", label: "Alertas", iconKey: "alertas", badge: alertasPendientes || undefined },
         { href: "/reportes", label: "Reportes", iconKey: "reportes" },
+        { href: "/publicidad", label: "Publicidad", iconKey: "publicidad" },
         ...(esAdmin
           ? [
               { href: "/configuracion/auditoria", label: "Auditoría", iconKey: "auditoria" as IconoNav },

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { enviarPush, esSuscripcionInvalida, pushConfigurado, type PushPayload } from "@/lib/push";
 import type { SuscripcionPushInput } from "./schema";
 
@@ -26,8 +27,17 @@ export async function existeSuscripcion(endpoint: string) {
 
 /** Envía el payload a todas las suscripciones activas, borrando las que ya no sean válidas. */
 export async function enviarPushATodos(payload: PushPayload) {
+  return enviarPushA(payload);
+}
+
+/** Igual que enviarPushATodos, pero solo a los administradores (ej. avisos de publicidad). */
+export async function enviarPushAAdmins(payload: PushPayload) {
+  return enviarPushA(payload, { usuario: { rol: "admin" } });
+}
+
+async function enviarPushA(payload: PushPayload, where?: Prisma.PushSubscriptionWhereInput) {
   if (!pushConfigurado) return { total: 0, enviados: 0 };
-  const suscripciones = await prisma.pushSubscription.findMany();
+  const suscripciones = await prisma.pushSubscription.findMany({ where });
   let enviados = 0;
   for (const suscripcion of suscripciones) {
     try {

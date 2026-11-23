@@ -17,6 +17,7 @@ import {
   CreditCard,
   Route,
   DatabaseBackup,
+  Megaphone,
 } from "lucide-react";
 
 export type IconoNav =
@@ -37,7 +38,8 @@ export type IconoNav =
   | "variedades"
   | "calibres"
   | "auditoria"
-  | "usuarios";
+  | "usuarios"
+  | "publicidad";
 
 export const ICONOS_NAV: Record<IconoNav, typeof LayoutDashboard> = {
   dashboard: LayoutDashboard,
@@ -58,4 +60,5 @@ export const ICONOS_NAV: Record<IconoNav, typeof LayoutDashboard> = {
   calibres: Ruler,
   auditoria: ShieldCheck,
   usuarios: UserCog,
+  publicidad: Megaphone,
 };
