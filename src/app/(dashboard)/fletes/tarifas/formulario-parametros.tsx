@@ -12,14 +12,20 @@ const num = (s: string) => Number(s.replace(/\./g, "").replace(",", ".")) || 0;
 export function FormularioParametros({
   combustiblePorKm,
   tarifaPorKm,
+  kmPorPeaje,
+  costoPorPeaje,
 }: {
   combustiblePorKm: number;
   tarifaPorKm: number;
+  kmPorPeaje: number;
+  costoPorPeaje: number;
 }) {
   const router = useRouter();
   const [enviando, setEnviando] = useState(false);
   const [combustible, setCombustible] = useState(String(combustiblePorKm || ""));
   const [tarifa, setTarifa] = useState(String(tarifaPorKm || ""));
+  const [kmPeaje, setKmPeaje] = useState(String(kmPorPeaje || ""));
+  const [costoPeaje, setCostoPeaje] = useState(String(costoPorPeaje || ""));
 
   async function guardar() {
     setEnviando(true);
@@ -27,7 +33,12 @@ export function FormularioParametros({
       const res = await fetch("/api/v1/fletes/parametros", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ combustiblePorKm: num(combustible), tarifaPorKm: num(tarifa) }),
+        body: JSON.stringify({
+          combustiblePorKm: num(combustible),
+          tarifaPorKm: num(tarifa),
+          kmPorPeaje: num(kmPeaje),
+          costoPorPeaje: num(costoPeaje),
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -51,6 +62,16 @@ export function FormularioParametros({
         <div className="flex flex-col gap-1">
           <Label>Tarifa a cobrar ($/km)</Label>
           <Input inputMode="decimal" value={tarifa} onChange={(e) => setTarifa(e.target.value)} placeholder="Ej: 1000" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label>Un peaje cada (km)</Label>
+          <Input inputMode="decimal" value={kmPeaje} onChange={(e) => setKmPeaje(e.target.value)} placeholder="Ej: 70" />
+          <p className="text-xs text-muted-foreground">Cuenta los km de ida y vuelta juntos.</p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label>Costo de cada peaje ($)</Label>
+          <Input inputMode="decimal" value={costoPeaje} onChange={(e) => setCostoPeaje(e.target.value)} placeholder="Ej: 3200" />
+          <p className="text-xs text-muted-foreground">Lo que paga el camión en cada peaje.</p>
         </div>
         <Button className="w-fit sm:col-span-2" onClick={guardar} disabled={enviando}>
           {enviando ? "Guardando..." : "Guardar tarifas"}

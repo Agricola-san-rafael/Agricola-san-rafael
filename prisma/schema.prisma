@@ -617,11 +617,15 @@ model CostoFijoRecurrente {
 }
 
 /// Tarifas por km del transporte (fila única, id fijo "default"): para sugerir
-/// el costo de combustible y la tarifa a cobrar según los km de cada viaje.
+/// el costo de combustible, la tarifa a cobrar y los peajes según los km de cada viaje.
+/// kmPorPeaje = cada cuántos km (ida y vuelta) se estima un peaje; costoPorPeaje = lo que
+/// cuesta cada uno para el camión. 0 = sin configurar (no se sugiere nada).
 model ParametroTransporte {
   id               String   @id
   combustiblePorKm Decimal  @default(0) @map("combustible_por_km") @db.Decimal(10, 2)
   tarifaPorKm      Decimal  @default(0) @map("tarifa_por_km") @db.Decimal(10, 2)
+  kmPorPeaje       Decimal  @default(0) @map("km_por_peaje") @db.Decimal(10, 2)
+  costoPorPeaje    Decimal  @default(0) @map("costo_por_peaje") @db.Decimal(12, 2)
   updatedAt        DateTime @updatedAt @map("updated_at")
   updatedById      String?  @map("updated_by")
 

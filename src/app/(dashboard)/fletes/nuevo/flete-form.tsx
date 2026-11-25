@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { SelectField } from "@/components/forms/select-field";
 import { todayLocalISODate } from "@/modules/shared/dates";
 import { formatCLP } from "@/modules/shared/money";
-import { calcularSugeridoPorKm } from "@/modules/fletes/consumo";
+import { calcularPeajesPorKm, calcularSugeridoPorKm } from "@/modules/fletes/consumo";
+import { Checkbox } from "@/components/ui/checkbox";
 import { GastosRutaEditor, type GastoRutaBorrador } from "../gastos-ruta-editor";
 
 const OTRO_CLIENTE = "__otro__";
@@ -35,14 +36,14 @@ export function FleteForm({
   clientesTransporte,
   tipoInicial = "venta",
   volverA = "/fletes",
-  parametros = { combustiblePorKm: 0, tarifaPorKm: 0 },
+  parametros = { combustiblePorKm: 0, tarifaPorKm: 0, kmPorPeaje: 0, costoPorPeaje: 0 },
 }: {
   compras: Opcion[];
   ventas: Opcion[];
   clientesTransporte: Opcion[];
   tipoInicial?: "compra" | "venta" | "tercero";
   volverA?: string;
-  parametros?: { combustiblePorKm: number; tarifaPorKm: number };
+  parametros?: { combustiblePorKm: number; tarifaPorKm: number; kmPorPeaje: number; costoPorPeaje: number };
 }) {
   const router = useRouter();
   const [enviando, setEnviando] = useState(false);
@@ -56,6 +57,7 @@ export function FleteForm({
   const [kilos, setKilos] = useState("");
   const [vehiculo, setVehiculo] = useState("");
   const [km, setKm] = useState("");
+  const [soloIda, setSoloIda] = useState(false);
   const [nombreChofer, setNombreChofer] = useState("");
   const [estadoCobro, setEstadoCobro] = useState<"pendiente" | "cobrado">("pendiente");
   const [nFactura, setNFactura] = useState("");
@@ -77,8 +79,11 @@ export function FleteForm({
   );
   const costoTotal = num(combustible) + num(chofer) + num(peajes) + num(otros) + totalGastosRuta;
   const kmNum = num(km);
-  const combustibleSugerido = calcularSugeridoPorKm(kmNum || undefined, parametros.combustiblePorKm);
-  const tarifaSugerida = calcularSugeridoPorKm(kmNum || undefined, parametros.tarifaPorKm);
+  // Si solo se escribió la ida, el viaje real es el doble (ida y vuelta); todo se calcula con ese total.
+  const kmTotal = soloIda ? kmNum * 2 : kmNum;
+  const combustibleSugerido = calcularSugeridoPorKm(kmTotal || undefined, parametros.combustiblePorKm);
+  const tarifaSugerida = calcularSugeridoPorKm(kmTotal || undefined, parametros.tarifaPorKm);
+  const peajesSugeridos = calcularPeajesPorKm(kmTotal || undefined, parametros.kmPorPeaje, parametros.costoPorPeaje);
 
   async function guardar() {
     if (gastosRutaIncompletos) {
@@ -95,7 +100,8 @@ export function FleteForm({
           compraId: tipo === "compra" ? operacionId : undefined,
           ventaId: tipo === "venta" ? operacionId : undefined,
           clienteId: tipo === "tercero" && clienteId && clienteId !== OTRO_CLIENTE ? clienteId : undefined,
-          terceroNombre: tercero, origen, destino, kilos, vehiculo, km, chofer: nombreChofer, estadoCobro, nFactura,
+          terceroNombre: tercero, origen, destino, kilos, vehiculo, km: soloIda && kmNum > 0 ? String(kmTotal) : km,
+          chofer: nombreChofer, estadoCobro, nFactura,
           totalFacturado: totalFacturado ? num(totalFacturado) : undefined,
           costoCombustible: num(combustible), costoChofer: num(chofer), costoPeajes: num(peajes), costoOtros: num(otros),
           gastosRuta: gastosRutaValidos,
@@ -185,6 +191,15 @@ export function FleteForm({
         <div className="flex flex-col gap-1">
           <Label>Kilómetros recorridos</Label>
           <Input inputMode="decimal" value={km} onChange={(e) => setKm(e.target.value)} />
+          <div className="flex items-center gap-2">
+            <Checkbox id="solo-ida" checked={soloIda} onCheckedChange={(v) => setSoloIda(v === true)} />
+            <Label htmlFor="solo-ida" className="text-xs font-normal">
+              Escribí solo la ida (calcular ida y vuelta)
+            </Label>
+          </div>
+          {soloIda && kmNum > 0 && (
+            <p className="text-xs text-muted-foreground">Ida y vuelta: {kmTotal} km</p>
+          )}
         </div>
         <div className="flex flex-col gap-1">
           <Label>Nombre del chofer</Label>
@@ -219,6 +234,17 @@ export function FleteForm({
           <div className="flex flex-col gap-1">
             <Label>Peajes</Label>
             <Input inputMode="decimal" value={peajes} onChange={(e) => setPeajes(e.target.value)} />
+            {peajesSugeridos.costo > 0 && (
+              <button
+                type="button"
+                onClick={() => setPeajes(String(peajesSugeridos.costo))}
+                className="w-fit text-left text-xs text-primary hover:underline"
+              >
+                Sugerido por km ({kmTotal} km ida y vuelta): {peajesSugeridos.cantidad}{" "}
+                {peajesSugeridos.cantidad === 1 ? "peaje" : "peajes"} × {formatCLP(parametros.costoPorPeaje)} ={" "}
+                {formatCLP(peajesSugeridos.costo)} (usar)
+              </button>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <Label>Otros</Label>
