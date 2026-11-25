@@ -319,6 +319,7 @@ model LoteInventario {
   estado           EstadoLote @default(disponible)
 
   ventaLotes VentaLote[]
+  mermas     Merma[]
 
   @@index([variedadId, calibreId, fechaIngreso])
   @@map("lotes_inventario")
@@ -521,6 +522,35 @@ model MovimientoEntreEmpresas {
 /// o cualquier corrección puntual (diferencia de arqueo, retiro/aporte del
 /// dueño, etc.) que el flujo de caja no puede deducir solo de cobros/pagos/
 /// gastos. Monto positivo = suma al saldo; negativo = resta.
+/// Por qué se dieron de baja kilos al pesar el stock.
+enum CausaMerma {
+  perdida_peso
+  fruta_mala
+  error_conteo
+  regalo_muestra
+}
+
+/// Kilos dados de baja de un lote al pesar el stock (pérdida de peso, fruta mala, error de conteo o regalo).
+/// Cada fila es la parte de un conteo que le tocó a un lote, valorizada al costo del lote.
+model Merma {
+  id            String         @id @default(uuid())
+  fecha         DateTime       @db.Date
+  loteId        String         @map("lote_id")
+  lote          LoteInventario @relation(fields: [loteId], references: [id])
+  kilos         Decimal        @db.Decimal(10, 2)
+  costoKg       Decimal        @map("costo_kg") @db.Decimal(10, 2)
+  /// Lo dado de baja al costo del lote (kilos × costo por kilo).
+  valor         Decimal        @db.Decimal(12, 2)
+  causa         CausaMerma
+  observaciones String?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  createdById   String?        @map("created_by")
+
+  @@index([fecha])
+  @@index([loteId])
+  @@map("mermas")
+}
+
 model AjusteCaja {
   id          String   @id @default(uuid())
   fecha       DateTime @db.Date

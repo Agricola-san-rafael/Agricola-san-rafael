@@ -28,6 +28,7 @@ describe("operadorPuedeAbrirPagina", () => {
       "/fletes",
       "/configuracion/usuarios",
       "/alertas",
+      "/inventario/merma",
     ]) {
       expect(operadorPuedeAbrirPagina(ruta), ruta).toBe(false);
     }
@@ -77,6 +78,7 @@ describe("operadorPuedeUsarApi", () => {
       ["GET", "/api/v1/usuarios"],
       ["GET", "/api/v1/alertas"],
       ["POST", "/api/v1/inventario/lotes/abc/ajustar"],
+      ["POST", "/api/v1/mermas/conteo"],
     ] as const) {
       expect(operadorPuedeUsarApi(metodo, ruta), `${metodo} ${ruta}`).toBe(false);
     }

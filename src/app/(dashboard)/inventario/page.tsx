@@ -23,6 +23,9 @@ export default async function InventarioPage() {
           <Link href="/inventario/cajas" className="text-sm text-primary hover:underline">
             Ver cajas
           </Link>
+          <Link href="/inventario/merma" className="text-sm text-primary hover:underline">
+            Merma y conteo de stock
+          </Link>
         </div>
       </div>
       <p className="text-muted-foreground">
